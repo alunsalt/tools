@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shooting Plan Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gen-bg:#faf9f5;
+    --gen-panel:#ffffff;
+    --gen-ink:#1f2a1d;
+    --gen-muted:#6b7167;
+    --gen-accent:#3a6b35;
+    --gen-accent-soft:#eef2ec;
+    --gen-border:#dcdcd2;
+    --gen-border-strong:#c3c4b8;
+    --gen-warn:#9a3b2f;
+    --gen-radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--gen-bg);
+    color:var(--gen-ink);
+    font-family:"DM Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:28px 20px 80px;
+  }
+  .gen-wrap{max-width:760px;margin:0 auto}
+
+  .gen-masthead h1{
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:600;
+    font-size:30px;
+    line-height:1.1;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .gen-masthead p{margin:0;color:var(--gen-muted);font-size:14px}
+
+  .gen-top{
+    display:grid;
+    grid-template-columns:1fr 240px;
+    gap:16px;
+    margin:22px 0 26px;
+  }
+  @media(max-width:620px){.gen-top{grid-template-columns:1fr}}
+
+  .gen-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .gen-field:last-child{margin-bottom:0}
+  .gen-label{
+    font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--gen-muted);
+  }
+  input[type=text],textarea,select{
+    font-family:inherit;font-size:15px;color:var(--gen-ink);
+    background:var(--gen-panel);
+    border:1px solid var(--gen-border);
+    border-radius:9px;
+    padding:9px 11px;
+    width:100%;
+  }
+  textarea{resize:vertical;line-height:1.5}
+  input:focus,textarea:focus,select:focus{
+    outline:none;border-color:var(--gen-accent);
+    box-shadow:0 0 0 3px var(--gen-accent-soft);
+  }
+
+  .gen-runtime{
+    background:var(--gen-panel);
+    border:1px solid var(--gen-border);
+    border-radius:var(--gen-radius);
+    padding:14px 16px;
+    align-self:start;
+  }
+  .gen-rt-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .gen-rt-row + .gen-rt-row{margin-top:8px;padding-top:8px;border-top:1px dashed var(--gen-border)}
+  .gen-rt-key{font-size:12px;color:var(--gen-muted)}
+  .gen-rt-val{font-family:"Fraunces",Georgia,serif;font-size:22px;font-weight:500}
+  .gen-rt-val small{font-size:12px;color:var(--gen-muted);font-family:"DM Sans",sans-serif}
+  .gen-wpm{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--gen-border)}
+  .gen-wpm label{font-size:12px;color:var(--gen-muted);white-space:nowrap}
+  .gen-wpm input{width:64px;padding:5px 7px;font-size:14px;text-align:center}
+
+  .gen-scenes{display:flex;flex-direction:column;gap:16px}
+
+  .gen-card{
+    background:var(--gen-panel);
+    border:1px solid var(--gen-border);
+    border-left:4px solid var(--gen-border-strong);
+    border-radius:var(--gen-radius);
+    padding:16px;
+  }
+  .gen-card[data-nottiktok="true"]{border-left-color:var(--gen-accent)}
+  .gen-card[data-additional="true"]{border-left-style:dashed}
+
+  .gen-card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .gen-scene-no{
+    font-family:"Fraunces",Georgia,serif;font-size:18px;font-weight:600;
+    white-space:nowrap;
+  }
+  .gen-card-head select{width:auto;min-width:130px;padding:6px 9px;font-size:14px;font-weight:500}
+  .gen-spacer{flex:1}
+  .gen-scene-stat{
+    font-size:12px;color:var(--gen-muted);white-space:nowrap;
+    font-variant-numeric:tabular-nums;margin-right:2px;
+  }
+  .gen-iconbtn{
+    border:1px solid var(--gen-border);background:var(--gen-bg);
+    border-radius:8px;width:32px;height:32px;cursor:pointer;
+    font-size:15px;color:var(--gen-ink);display:flex;align-items:center;justify-content:center;
+    padding:0;line-height:1;
+  }
+  .gen-iconbtn:hover:not(:disabled){border-color:var(--gen-accent);color:var(--gen-accent)}
+  .gen-iconbtn:disabled{opacity:0.32;cursor:default}
+  .gen-iconbtn.gen-del:hover:not(:disabled){border-color:var(--gen-warn);color:var(--gen-warn)}
+
+  .gen-desc{font-style:italic}
+  .gen-footrow{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .gen-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--gen-muted);cursor:pointer;user-select:none}
+  .gen-check input{width:auto;margin:0}
+
+  .gen-add{
+    margin:18px 0 26px;
+    border:1.5px dashed var(--gen-border-strong);
+    background:transparent;color:var(--gen-accent);
+    font-family:inherit;font-size:15px;font-weight:600;
+    border-radius:var(--gen-radius);padding:13px;width:100%;cursor:pointer;
+  }
+  .gen-add:hover:not(:disabled){background:var(--gen-accent-soft);border-color:var(--gen-accent)}
+  .gen-add:disabled{opacity:0.4;cursor:default}
+  .gen-hint{font-size:12px;color:var(--gen-muted);text-align:center;margin:-16px 0 26px;min-height:16px}
+
+  .gen-exports{display:flex;gap:12px;flex-wrap:wrap}
+  .gen-btn{
+    font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;
+    border-radius:10px;padding:12px 20px;border:1px solid var(--gen-accent);
+  }
+  .gen-btn-primary{background:var(--gen-accent);color:#fff}
+  .gen-btn-primary:hover{background:#2f5a2b}
+  .gen-btn-ghost{background:transparent;color:var(--gen-accent)}
+  .gen-btn-ghost:hover{background:var(--gen-accent-soft)}
+
+  .gen-note{font-size:12px;color:var(--gen-muted);margin-top:16px;line-height:1.55}
+</style>
+</head>
+<body>
+<div class="gen-wrap">
+  <div class="gen-masthead">
+    <h1>Shooting Plan Builder</h1>
+    <p>Write at the desk in narrative order. Export an HTML aide for the phone, Markdown to save, or a blog draft to edit into Ghost.</p>
+  </div>
+
+  <div class="gen-top">
+    <div>
+      <div class="gen-field">
+        <label class="gen-label" for="gen-title">Video title</label>
+        <input type="text" id="gen-title" placeholder="e.g. The well-travelled larder: walnut">
+      </div>
+      <div class="gen-field">
+        <label class="gen-label" for="gen-description">Video description</label>
+        <textarea id="gen-description" rows="2" placeholder="A line or two of context for this video."></textarea>
+      </div>
+    </div>
+    <div class="gen-runtime">
+      <div class="gen-rt-row">
+        <span class="gen-rt-key">Full</span>
+        <span class="gen-rt-val" id="gen-rt-full">0:00</span>
+      </div>
+      <div class="gen-rt-row">
+        <span class="gen-rt-key">TikTok cut</span>
+        <span class="gen-rt-val" id="gen-rt-tiktok">0:00</span>
+      </div>
+      <div class="gen-wpm">
+        <label for="gen-wpm">Words / min</label>
+        <input type="text" id="gen-wpm" value="140" inputmode="numeric">
+      </div>
+    </div>
+  </div>
+
+  <div class="gen-scenes" id="gen-scenes"></div>
+
+  <button class="gen-add" id="gen-add">+ Add scene</button>
+  <div class="gen-hint" id="gen-hint"></div>
+
+  <div class="gen-exports">
+    <button class="gen-btn gen-btn-primary" id="gen-export-html">Export as HTML</button>
+    <button class="gen-btn gen-btn-ghost" id="gen-export-md">Export as Markdown</button>
+    <button class="gen-btn gen-btn-ghost" id="gen-export-blog">Export for blog</button>
+    <button class="gen-btn gen-btn-ghost" id="gen-import-md">Import Markdown</button>
+    <input type="file" id="gen-import-file" accept=".md,.markdown,.txt,text/markdown,text/plain" style="display:none">
+  </div>
+
+  <p class="gen-note">
+    <b>Export as Markdown</b> is your save file: plain text you can edit in iA Writer and re-import here to pick up where you left off. <b>Export for blog</b> pours the spoken scripts into flowing Markdown — scene labels dropped, visual cues stripped, emphasis and links kept in place — ready to edit into a Ghost post. In the script you can use Markdown <b>**bold**</b>, <em>*italic*</em> and <em>[text](links)</em>; these carry through to the blog draft. Square-bracket notes with no link, like <em>[over iNat photo]</em>, are treated as visual cues: shown on the aide, but not counted toward runtime and not carried to the blog. Tick <b>Additional scene</b> for vertical-only extras — the hooks and tails you shoot for pulled-out shorts: they stay in the plan and on the shooting aide but are left out of both runtime totals, since you'll time those when you cut them in the editor. Close-ups are timed slightly slower. The exported HTML tracks shot/not-shot on the phone via that browser's storage — re-exporting after edits starts that tracking fresh.
+  </p>
+</div>
+
+<!-- The shooting-aide template, stored inert so its own scripts and ${} are untouched. -->
+<script type="text/plain" id="gen-aide-template">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ — Shooting Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sp-bg:#faf9f5; --sp-panel:#ffffff; --sp-ink:#1f2a1d; --sp-muted:#6b7167;
+    --sp-accent:#3a6b35; --sp-accent-soft:#eef2ec; --sp-border:#dcdcd2; --sp-border-strong:#c3c4b8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--sp-bg); color:var(--sp-ink);
+    font-family:"DM Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+    padding:22px 16px 92px;
+  }
+  .sp-wrap{max-width:680px;margin:0 auto}
+  .sp-title{font-family:"Fraunces",Georgia,serif;font-weight:600;font-size:26px;line-height:1.12;margin:0 0 4px;letter-spacing:-0.01em}
+  .sp-desc{margin:0 0 14px;color:var(--sp-muted);font-size:14px}
+  .sp-runtimes{display:flex;gap:18px;font-size:13px;color:var(--sp-muted);margin-bottom:16px}
+  .sp-runtimes b{color:var(--sp-ink);font-family:"Fraunces",Georgia,serif;font-weight:500;font-size:15px}
+
+  .sp-views{display:flex;gap:8px;margin-bottom:20px}
+  .sp-viewbtn{
+    flex:1;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+    border:1px solid var(--sp-border);background:var(--sp-panel);color:var(--sp-muted);
+    border-radius:10px;padding:11px;
+  }
+  .sp-viewbtn.sp-active{background:var(--sp-accent);color:#fff;border-color:var(--sp-accent)}
+
+  .sp-scenes{display:flex;flex-direction:column;gap:14px}
+  .sp-card{
+    background:var(--sp-panel);
+    border:1px solid var(--sp-border);
+    border-left:4px solid var(--sp-border-strong);
+    border-radius:14px;padding:16px;
+    transition:opacity .2s ease;
+  }
+  .sp-card[data-nottiktok="true"]{border-left-color:var(--sp-accent)}
+  .sp-card[data-additional="true"]{border-left-style:dashed}
+  .sp-card.sp-shot{opacity:0.4}
+  .sp-card-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .sp-no{font-family:"Fraunces",Georgia,serif;font-size:17px;font-weight:600}
+  .sp-type{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--sp-accent);background:var(--sp-accent-soft);padding:3px 8px;border-radius:999px}
+  .sp-tag{font-size:11px;color:var(--sp-muted);margin-left:auto;align-self:center}
+  .sp-cardesc{font-style:italic;color:var(--sp-muted);font-size:14px;margin:0 0 8px;white-space:pre-wrap}
+  .sp-script{white-space:pre-wrap;font-size:15.5px;margin:0}
+  .sp-script:empty::before{content:"(no script)";color:var(--sp-border-strong)}
+  .sp-toggle{
+    margin-top:14px;width:100%;font-family:inherit;font-size:14px;font-weight:700;letter-spacing:0.04em;
+    cursor:pointer;border-radius:10px;padding:12px;border:1.5px solid var(--sp-border-strong);
+    background:var(--sp-bg);color:var(--sp-muted);
+  }
+  .sp-card.sp-shot .sp-toggle{background:var(--sp-accent);color:#fff;border-color:var(--sp-accent)}
+
+  .sp-bar{
+    position:fixed;left:0;right:0;bottom:0;
+    background:rgba(255,255,255,0.96);backdrop-filter:blur(6px);
+    border-top:1px solid var(--sp-border);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 18px;
+  }
+  .sp-progress{font-family:"Fraunces",Georgia,serif;font-size:15px;font-weight:500}
+  .sp-clear{font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--sp-muted);background:transparent;border:1px solid var(--sp-border);border-radius:8px;padding:7px 12px}
+  .sp-clear:hover{color:#9a3b2f;border-color:#9a3b2f}
+</style>
+</head>
+<body>
+<div class="sp-wrap">
+  <h1 class="sp-title">__TITLE__</h1>
+  <p class="sp-desc">__DESCRIPTION__</p>
+  <div class="sp-runtimes">
+    <span>Full <b>__RT_FULL__</b></span>
+    <span>TikTok cut <b>__RT_TIKTOK__</b></span>
+  </div>
+  <div class="sp-views">
+    <button class="sp-viewbtn sp-active" id="sp-narr">Narrative Order</button>
+    <button class="sp-viewbtn" id="sp-shoot">Shooting Order</button>
+  </div>
+  <div class="sp-scenes" id="sp-scenes"></div>
+</div>
+<div class="sp-bar">
+  <span class="sp-progress" id="sp-progress">Shot 0 of 0 scenes</span>
+  <button class="sp-clear" id="sp-clear">Reset progress</button>
+</div>
+<script>
+  const PLAN_ID = "__PLAN_ID__";
+  const SCENES = __PLAN_DATA__;
+  const TYPE_ORDER = ["WIDE","MEDIUM","B-CAMERA","VOICEOVER","CLOSE-UP"];
+  const KEY = "sp_" + PLAN_ID;
+  let view = "narrative";
+
+  // Render the small Markdown subset for reading off the phone: emphasis becomes
+  // bold/italic, [text](url) links collapse to just their text (nothing to tap
+  // while filming), and [bracketed] visual cues are left visible as reminders.
+  function inlineMd(s){
+    s = String(s == null ? "" : s);
+    s = s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return s;
+  }
+
+  function loadState(){
+    try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }
+    catch(e){ return {}; }
+  }
+  function saveState(s){
+    try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){}
+  }
+  let state = loadState();
+
+  function ordered(){
+    if(view === "narrative"){
+      return SCENES.slice().sort((a,b)=>a.n-b.n);
+    }
+    return SCENES.slice().sort((a,b)=>{
+      const ta = TYPE_ORDER.indexOf(a.type), tb = TYPE_ORDER.indexOf(b.type);
+      if(ta !== tb) return ta-tb;
+      const aa = a.additional ? 1 : 0, ab = b.additional ? 1 : 0;
+      if(aa !== ab) return aa - ab;   // within a type: landscape first, then its vertical extra
+      return a.n-b.n;
+    });
+  }
+
+  function render(){
+    const wrap = document.getElementById("sp-scenes");
+    wrap.textContent = "";
+    ordered().forEach(sc=>{
+      const card = document.createElement("div");
+      card.className = "sp-card";
+      if(sc.notTikTok) card.dataset.nottiktok = "true";
+      if(sc.additional) card.dataset.additional = "true";
+      if(state[sc.id]) card.classList.add("sp-shot");
+
+      const head = document.createElement("div");
+      head.className = "sp-card-head";
+      const no = document.createElement("span");
+      no.className = "sp-no"; no.textContent = "Scene " + sc.n;
+      const type = document.createElement("span");
+      type.className = "sp-type"; type.textContent = sc.type;
+      head.appendChild(no); head.appendChild(type);
+      if(sc.notTikTok){
+        const tag = document.createElement("span");
+        tag.className = "sp-tag"; tag.textContent = "not in TikTok cut";
+        head.appendChild(tag);
+      }
+      if(sc.additional){
+        const tagA = document.createElement("span");
+        tagA.className = "sp-tag"; tagA.textContent = "vertical extra";
+        head.appendChild(tagA);
+      }
+      card.appendChild(head);
+
+      if(sc.description && sc.description.trim()){
+        const d = document.createElement("p");
+        d.className = "sp-cardesc"; d.textContent = sc.description;
+        card.appendChild(d);
+      }
+      const scr = document.createElement("p");
+      scr.className = "sp-script"; scr.innerHTML = inlineMd(sc.script || "");
+      card.appendChild(scr);
+
+      const btn = document.createElement("button");
+      btn.className = "sp-toggle";
+      btn.textContent = state[sc.id] ? "SHOT" : "NOT SHOT";
+      btn.addEventListener("click", ()=>{
+        state[sc.id] = !state[sc.id];
+        if(!state[sc.id]) delete state[sc.id];
+        saveState(state);
+        card.classList.toggle("sp-shot");
+        btn.textContent = state[sc.id] ? "SHOT" : "NOT SHOT";
+        updateProgress();
+      });
+      card.appendChild(btn);
+
+      wrap.appendChild(card);
+    });
+    updateProgress();
+  }
+
+  function updateProgress(){
+    const total = SCENES.length;
+    const done = SCENES.filter(sc=>state[sc.id]).length;
+    document.getElementById("sp-progress").textContent =
+      "Shot " + done + " of " + total + (total===1?" scene":" scenes");
+  }
+
+  document.getElementById("sp-narr").addEventListener("click", ()=>{
+    view="narrative";
+    document.getElementById("sp-narr").classList.add("sp-active");
+    document.getElementById("sp-shoot").classList.remove("sp-active");
+    render();
+  });
+  document.getElementById("sp-shoot").addEventListener("click", ()=>{
+    view="shooting";
+    document.getElementById("sp-shoot").classList.add("sp-active");
+    document.getElementById("sp-narr").classList.remove("sp-active");
+    render();
+  });
+  document.getElementById("sp-clear").addEventListener("click", ()=>{
+    if(confirm("Clear all shot / not-shot ticks for this plan? This can't be undone.")){
+      state = {};
+      saveState(state);
+      render();
+    }
+  });
+
+  render();
+<\/script>
+</body>
+</html>
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  var TYPES = ["WIDE","MEDIUM","VOICEOVER","B-CAMERA","CLOSE-UP"];
+  var CLOSEUP_FACTOR = 0.75;   // close-ups delivered slower
+  var PAUSE_PER_SCENE = 0.5;   // seconds, breath-and-cut gap
+  var seq = 0;
+  var scenes = [];
+  var statEls = [];            // per-scene word/runtime readouts, rebuilt by render()
+
+  function uid(){ return "s" + (++seq); }
+  function newScene(type){ return {id:uid(), type:type, description:"", script:"", notTikTok:false, additional:false}; }
+
+  // ---------- runtime ----------
+  // Reduce script markup to the words actually spoken, so runtime counts them
+  // correctly: [text](url) links keep their text, [bracketed] visual cues are
+  // dropped, and **/* emphasis markers are removed.
+  function spokenText(s){
+    s = s || "";
+    s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");   // links -> link text
+    s = s.replace(/\[[^\]]*\]/g, " ");               // visual cues -> gone
+    s = s.replace(/\*\*([^*]+)\*\*/g, "$1");         // **bold** -> bold
+    s = s.replace(/\*([^*]+)\*/g, "$1");             // *italic* -> italic
+    return s;
+  }
+  function wordCount(s){
+    var t = spokenText(s).trim();
+    return t ? t.split(/\s+/).length : 0;
+  }
+  function baseWpm(){
+    var v = parseFloat(document.getElementById("gen-wpm").value);
+    return (isFinite(v) && v > 0) ? v : 140;
+  }
+  function sceneSeconds(sc, base){
+    var eff = (sc.type === "CLOSE-UP") ? base * CLOSEUP_FACTOR : base;
+    return (wordCount(sc.script) / eff) * 60 + PAUSE_PER_SCENE;
+  }
+  function fmt(sec){
+    sec = Math.round(sec);
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function runtimes(){
+    var base = baseWpm(), full = 0, tik = 0;
+    scenes.forEach(function(sc){
+      if(sc.additional) return;   // vertical-only extra: excluded from both totals
+      var s = sceneSeconds(sc, base);
+      full += s;
+      if(!sc.notTikTok) tik += s;
+    });
+    return {full:full, tik:tik};
+  }
+
+  // ---------- meta (runtime + add-button gate) ----------
+  function lastHasContent(){
+    if(!scenes.length) return false;
+    var last = scenes[scenes.length - 1];
+    return !!(last.description.trim() || last.script.trim());
+  }
+  function updateMeta(){
+    var base = baseWpm();
+    scenes.forEach(function(sc, i){
+      var el = statEls[i];
+      if(!el) return;
+      var w = wordCount(sc.script);
+      el.textContent = w + (w === 1 ? " word" : " words") +
+                       " \u00b7 " + fmt(sceneSeconds(sc, base)) +
+                       (sc.additional ? " \u00b7 extra" : "");
+    });
+    var rt = runtimes();
+    document.getElementById("gen-rt-full").textContent = fmt(rt.full);
+    document.getElementById("gen-rt-tiktok").textContent = fmt(rt.tik);
+    var canAdd = lastHasContent();
+    document.getElementById("gen-add").disabled = !canAdd;
+    document.getElementById("gen-hint").textContent =
+      canAdd ? "" : "Add a description or script to the last scene before adding another.";
+  }
+
+  // ---------- render (structural changes only) ----------
+  function render(){
+    var wrap = document.getElementById("gen-scenes");
+    wrap.textContent = "";
+    statEls = [];
+    scenes.forEach(function(sc, i){
+      var card = document.createElement("div");
+      card.className = "gen-card";
+      if(sc.notTikTok) card.dataset.nottiktok = "true";
+      if(sc.additional) card.dataset.additional = "true";
+
+      // head
+      var head = document.createElement("div");
+      head.className = "gen-card-head";
+      var no = document.createElement("span");
+      no.className = "gen-scene-no";
+      no.textContent = "Scene " + (i + 1);
+      head.appendChild(no);
+
+      var sel = document.createElement("select");
+      TYPES.forEach(function(t){
+        var o = document.createElement("option");
+        o.value = t; o.textContent = t;
+        if(t === sc.type) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", function(){ sc.type = sel.value; updateMeta(); });
+      head.appendChild(sel);
+
+      var spacer = document.createElement("div");
+      spacer.className = "gen-spacer";
+      head.appendChild(spacer);
+
+      var stat = document.createElement("span");
+      stat.className = "gen-scene-stat";
+      head.appendChild(stat);
+      statEls.push(stat);
+
+      var up = iconBtn("\u2191", "Move up", i === 0, function(){ move(i, -1); });
+      var down = iconBtn("\u2193", "Move down", i === scenes.length - 1, function(){ move(i, 1); });
+      var del = iconBtn("\u2715", "Delete scene", scenes.length === 1, function(){ remove(i); });
+      del.classList.add("gen-del");
+      head.appendChild(up); head.appendChild(down); head.appendChild(del);
+      card.appendChild(head);
+
+      // description
+      var dWrap = document.createElement("div");
+      dWrap.className = "gen-field";
+      var dLab = document.createElement("label");
+      dLab.className = "gen-label";
+      dLab.textContent = "Description (your note — shown italic on the aide)";
+      var dTa = document.createElement("textarea");
+      dTa.className = "gen-desc";
+      dTa.rows = 2;
+      dTa.value = sc.description;
+      dTa.placeholder = "e.g. slow walk-in, establish the reserve";
+      dTa.addEventListener("input", function(){ sc.description = dTa.value; updateMeta(); });
+      dWrap.appendChild(dLab); dWrap.appendChild(dTa);
+      card.appendChild(dWrap);
+
+      // script
+      var sWrap = document.createElement("div");
+      sWrap.className = "gen-field";
+      var sLab = document.createElement("label");
+      sLab.className = "gen-label";
+      sLab.textContent = "Script (spoken; Markdown **bold** *italic* [links](url) ok; [brackets] alone = visual cue)";
+      var sTa = document.createElement("textarea");
+      sTa.rows = 3;
+      sTa.value = sc.script;
+      sTa.placeholder = "The line you'll deliver.";
+      sTa.addEventListener("input", function(){ sc.script = sTa.value; updateMeta(); });
+      sWrap.appendChild(sLab); sWrap.appendChild(sTa);
+      card.appendChild(sWrap);
+
+      // not tiktok
+      var foot = document.createElement("div");
+      foot.className = "gen-footrow";
+      var lab = document.createElement("label");
+      lab.className = "gen-check";
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = sc.notTikTok;
+      cb.addEventListener("change", function(){
+        sc.notTikTok = cb.checked;
+        card.dataset.nottiktok = cb.checked ? "true" : "false";
+        updateMeta();
+      });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode("Not in TikTok cut"));
+      foot.appendChild(lab);
+
+      var labA = document.createElement("label");
+      labA.className = "gen-check";
+      var cbA = document.createElement("input");
+      cbA.type = "checkbox";
+      cbA.checked = sc.additional;
+      cbA.addEventListener("change", function(){
+        sc.additional = cbA.checked;
+        card.dataset.additional = cbA.checked ? "true" : "false";
+        updateMeta();
+      });
+      labA.appendChild(cbA);
+      labA.appendChild(document.createTextNode("Additional scene (vertical only \u2014 not counted)"));
+      foot.appendChild(labA);
+      card.appendChild(foot);
+
+      wrap.appendChild(card);
+    });
+    updateMeta();
+  }
+
+  function iconBtn(glyph, title, disabled, fn){
+    var b = document.createElement("button");
+    b.className = "gen-iconbtn";
+    b.type = "button";
+    b.textContent = glyph;
+    b.title = title;
+    b.setAttribute("aria-label", title);
+    b.disabled = !!disabled;
+    if(!disabled) b.addEventListener("click", fn);
+    return b;
+  }
+
+  function move(i, dir){
+    var j = i + dir;
+    if(j < 0 || j >= scenes.length) return;
+    var tmp = scenes[i]; scenes[i] = scenes[j]; scenes[j] = tmp;
+    render();
+  }
+  function remove(i){
+    if(scenes.length === 1) return;
+    var sc = scenes[i];
+    var hasContent = sc.description.trim() || sc.script.trim();
+    if(hasContent && !confirm("Delete Scene " + (i + 1) + "? Its description and script will be lost.")) return;
+    scenes.splice(i, 1);
+    render();
+  }
+  function addScene(){
+    if(!lastHasContent()) return;
+    var prev = scenes[scenes.length - 1];
+    var def = (prev && prev.type === "MEDIUM") ? "B-CAMERA" : "MEDIUM";
+    scenes.push(newScene(def));
+    render();
+  }
+
+  // ---------- helpers for export ----------
+  function escapeHtml(s){
+    return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+                    .replace(/"/g,"&quot;");
+  }
+  function slug(s){
+    var out = (s || "").toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+    return out || "plan";
+  }
+  function planTitle(){
+    return document.getElementById("gen-title").value.trim() || "Untitled video";
+  }
+  function planDesc(){
+    return document.getElementById("gen-description").value.trim();
+  }
+  function download(filename, text, mime){
+    var blob = new Blob([text], {type: mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+  }
+
+  // ---------- HTML export ----------
+  function exportHtml(){
+    var rt = runtimes();
+    var data = scenes.map(function(sc, i){
+      return {id: sc.id, n: i + 1, type: sc.type,
+              description: sc.description, script: sc.script, notTikTok: sc.notTikTok, additional: sc.additional};
+    });
+    var tmpl = document.getElementById("gen-aide-template").textContent;
+    tmpl = tmpl.split("<\\/script>").join("<\/script>");
+    var descHtml = escapeHtml(planDesc()).replace(/\n/g, "<br>");
+    var html = tmpl
+      .split("__PLAN_DATA__").join(JSON.stringify(data))
+      .split("__PLAN_ID__").join(slug(planTitle()))
+      .split("__TITLE__").join(escapeHtml(planTitle()))
+      .split("__DESCRIPTION__").join(descHtml)
+      .split("__RT_FULL__").join(fmt(rt.full))
+      .split("__RT_TIKTOK__").join(fmt(rt.tik));
+    download(slug(planTitle()) + ".html", html, "text/html");
+  }
+
+  // ---------- Markdown export ----------
+  function exportMarkdown(){
+    var rt = runtimes();
+    var lines = [];
+    lines.push("# " + planTitle());
+    lines.push("");
+    lines.push("<!-- runtime: full ~" + fmt(rt.full) + " \u00b7 TikTok cut ~" + fmt(rt.tik) +
+               " \u00b7 this file re-imports into the Shooting Plan Builder -->");
+    lines.push("");
+    if(planDesc()){ lines.push(planDesc()); lines.push(""); }
+    scenes.forEach(function(sc, i){
+      var heading = "## Scene " + (i + 1) + " \u00b7 " + sc.type;
+      if(sc.notTikTok) heading += " \u00b7 not in TikTok cut";
+      if(sc.additional) heading += " \u00b7 additional";
+      lines.push(heading);
+      lines.push("");
+      if(sc.description.trim()){
+        sc.description.trim().split("\n").forEach(function(d){ lines.push("> " + d); });
+        lines.push("");
+      }
+      if(sc.script.trim()){ lines.push(sc.script.trim()); lines.push(""); }
+    });
+    var out = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+    download(slug(planTitle()) + ".md", out, "text/markdown");
+  }
+
+  // ---------- blog export (flowing prose for Ghost) ----------
+  // Keeps Markdown emphasis and [text](url) links in place; drops [bracketed]
+  // visual cues (any [...] NOT immediately followed by "(", i.e. not a link).
+  function blogText(s){
+    s = s || "";
+    s = s.replace(/\[[^\]]*\](?!\()/g, "");   // remove visual cues, keep links
+    s = s.replace(/[ \t]{2,}/g, " ");          // tidy gaps left by removed cues
+    return s.replace(/[ \t]+\n/g, "\n").trim();
+  }
+  function exportBlog(){
+    var lines = [];
+    lines.push("# " + planTitle());
+    lines.push("");
+    scenes.forEach(function(sc){
+      var body = blogText(sc.script);
+      if(!body) return;                 // skip visual-only scenes (no spoken script)
+      lines.push(body);
+      lines.push("");
+    });
+    var out = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+    download(slug(planTitle()) + "-blog.md", out, "text/markdown");
+  }
+
+  // ---------- Markdown import (round-trip) ----------
+  function sceneFromHeading(h){
+    var norm = h.toUpperCase().replace(/\s+/g, "-");
+    var type = "MEDIUM";
+    // WIDE and legacy LONG both matched; LONG normalised to WIDE below.
+    var order = ["CLOSE-UP", "B-CAMERA", "VOICEOVER", "MEDIUM", "WIDE", "LONG"];
+    for(var k = 0; k < order.length; k++){
+      if(norm.indexOf(order[k]) !== -1){ type = order[k]; break; }
+    }
+    if(type === "LONG") type = "WIDE";   // backward compatibility with old plans
+    var notTikTok = /NOT-IN-TIK-?TOK/.test(norm);
+    var additional = /ADDITIONAL/.test(norm);
+    return {type:type, notTikTok:notTikTok, additional:additional, _desc:[], _script:[]};
+  }
+
+  function parsePlan(text){
+    text = text.replace(/<!--[\s\S]*?-->/g, "");
+    var lines = text.split(/\r?\n/);
+    var title = "", descLines = [], parsed = [], cur = null, started = false, descDone = false;
+
+    function pushCur(){ if(cur) parsed.push(cur); }
+
+    for(var i = 0; i < lines.length; i++){
+      var raw = lines[i];
+      var line = raw.replace(/\s+$/, "");
+      if(!started && /^#\s+/.test(line)){
+        title = line.replace(/^#\s+/, "").trim();
+        started = true;
+        continue;
+      }
+      var h2 = line.match(/^##\s+(.*)$/);
+      if(h2){
+        pushCur();
+        descDone = true;
+        cur = sceneFromHeading(h2[1]);
+        continue;
+      }
+      if(cur){
+        var bq = line.match(/^>\s?(.*)$/);
+        if(bq){ cur._desc.push(bq[1]); }
+        else if(line.trim() !== ""){ cur._script.push(line); }
+        else if(cur._script.length){ cur._script.push(""); }
+      } else if(started && !descDone){
+        descLines.push(line);
+      }
+    }
+    pushCur();
+
+    var outScenes = parsed.map(function(p){
+      var script = p._script.join("\n").replace(/^\n+|\n+$/g, "");
+      if(/^_?\(no script\)_?$/.test(script.trim())) script = "";
+      return {id:uid(), type:p.type, notTikTok:p.notTikTok, additional:p.additional,
+              description:p._desc.join("\n").trim(), script:script};
+    });
+    return {title:title, description:descLines.join("\n").trim(), scenes:outScenes};
+  }
+
+  function hasWork(){
+    if(document.getElementById("gen-title").value.trim()) return true;
+    if(document.getElementById("gen-description").value.trim()) return true;
+    return scenes.some(function(s){ return s.description.trim() || s.script.trim(); });
+  }
+
+  function doImport(text){
+    var plan = parsePlan(text);
+    if(!plan.scenes.length){
+      alert("Couldn't find any scenes in that file. Each scene needs a \"## Scene \u2026 \u00b7 TYPE\" heading.");
+      return;
+    }
+    if(hasWork() && !confirm("Replace the current plan with the imported file? Unsaved changes will be lost.")) return;
+    document.getElementById("gen-title").value = plan.title;
+    document.getElementById("gen-description").value = plan.description;
+    scenes = plan.scenes;
+    render();
+  }
+
+  // ---------- wire up ----------
+  document.getElementById("gen-add").addEventListener("click", addScene);
+  document.getElementById("gen-wpm").addEventListener("input", updateMeta);
+  document.getElementById("gen-title").addEventListener("input", function(){});
+  document.getElementById("gen-export-html").addEventListener("click", exportHtml);
+  document.getElementById("gen-export-md").addEventListener("click", exportMarkdown);
+  document.getElementById("gen-export-blog").addEventListener("click", exportBlog);
+  document.getElementById("gen-import-md").addEventListener("click", function(){
+    var inp = document.getElementById("gen-import-file");
+    inp.value = "";            // allow re-importing the same filename
+    inp.click();
+  });
+  document.getElementById("gen-import-file").addEventListener("change", function(e){
+    var f = e.target.files && e.target.files[0];
+    if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){ doImport(String(reader.result || "")); };
+    reader.onerror = function(){ alert("Couldn't read that file."); };
+    reader.readAsText(f);
+  });
+
+  // seed: Scene 1 defaults to WIDE (the walk-in opening)
+  scenes.push(newScene("WIDE"));
+  render();
+})();
+</script>
+</body>
+</html>
