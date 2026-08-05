@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cover headline preview — In Hooker's Shadow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ------------------------------------------------------------------
+   Cover headline preview.
+
+   A standalone bench for judging how a headline reads over a cover
+   photo in the "In Hooker's Shadow" theme. It does NOT hardcode an
+   aspect ratio: it rebuilds the cover as the theme does — masthead
+   band / photo / foot band, flex column — so the photo band is the
+   leftover height at whatever viewport you pick, and its true size is
+   measured and shown. Drop an image behind the real headline grid and
+   tune the keyline/halo treatment until it holds up.
+
+   NO BOX. The theme dropped the frosted panel behind each headline —
+   fill, blur, border, all of it — some time after this tool was last
+   updated. A headline is now white type sitting directly on the
+   photograph, held legible by two things only: an opaque black
+   keyline (-webkit-text-stroke) and a soft blurred "halo"
+   (text-shadow, two layers). This tool mirrors that now, not the box.
+
+   Two namespaces:
+     chp-      the tool's own chrome (DM Sans / Fraunces / #3a6b35)
+     chp-cv-   the cover replica — mirrors the theme's own rules, with
+               its own classes so this file stays self-contained.
+   Theme rem base is 62.5% (1rem = 10px); replica sizes are written in
+   px at that base, with the rem origin noted.
+------------------------------------------------------------------- */
+
+:root {
+    --chp-paper: #fbfaf7;
+    --chp-panel: #ffffff;
+    --chp-ink: #1c2420;
+    --chp-ink-soft: #5c635d;
+    --chp-accent: #3a6b35;
+    --chp-accent-ink: #ffffff;
+    --chp-border: #e6e3db;
+    --chp-border-soft: #efece5;
+    --chp-radius: 10px;
+    --chp-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+    margin: 0;
+    font-family: "DM Sans", system-ui, sans-serif;
+    color: var(--chp-ink);
+    background: var(--chp-paper);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.chp-app {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+}
+
+.chp-head {
+    grid-column: 1 / 3;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--chp-border);
+    background: var(--chp-panel);
+}
+.chp-head h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+.chp-head .chp-sub {
+    color: var(--chp-ink-soft);
+    font-size: 13px;
+    margin: 0;
+}
+.chp-readout {
+    margin-left: auto;
+    font-family: var(--chp-mono);
+    font-size: 12.5px;
+    color: var(--chp-ink);
+    background: var(--chp-border-soft);
+    padding: 6px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+.chp-readout b { color: var(--chp-accent); }
+
+/* ---- controls column ---- */
+.chp-panel {
+    overflow-y: auto;
+    padding: 18px 20px 40px;
+    border-right: 1px solid var(--chp-border);
+    background: var(--chp-panel);
+}
+.chp-group { margin-bottom: 26px; }
+.chp-group > h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--chp-accent);
+    margin: 0 0 12px;
+}
+.chp-row { margin-bottom: 12px; }
+.chp-row label {
+    display: block;
+    font-size: 12px;
+    color: var(--chp-ink-soft);
+    margin-bottom: 4px;
+}
+.chp-inline { display: flex; gap: 8px; align-items: center; }
+.chp-inline > * { min-width: 0; }
+
+select, input[type="text"], input[type="number"], input[type="url"] {
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--chp-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--chp-ink);
+}
+input[type="range"] { width: 100%; accent-color: var(--chp-accent); }
+input[type="file"] { font-size: 12px; width: 100%; }
+
+.chp-btn {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 6px 11px;
+    border: 1px solid var(--chp-border);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--chp-ink);
+    cursor: pointer;
+}
+.chp-btn:hover { border-color: var(--chp-accent); color: var(--chp-accent); }
+.chp-btn.is-on { background: var(--chp-accent); color: var(--chp-accent-ink); border-color: var(--chp-accent); }
+.chp-btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chp-slider-val { font-family: var(--chp-mono); font-size: 11.5px; color: var(--chp-ink-soft); float: right; }
+
+/* headline editor rows */
+.chp-hl {
+    border: 1px solid var(--chp-border-soft);
+    border-radius: 9px;
+    padding: 9px 10px;
+    margin-bottom: 8px;
+    background: #fcfcfa;
+}
+.chp-hl-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.chp-hl-top .chp-hl-name { font-size: 11.5px; color: var(--chp-ink-soft); font-family: var(--chp-mono); }
+.chp-hl-top input[type="checkbox"] { accent-color: var(--chp-accent); width: 15px; height: 15px; }
+.chp-hl-grid { display: grid; grid-template-columns: 1fr auto; gap: 7px; align-items: center; }
+.chp-hl-sub { display: flex; gap: 7px; align-items: center; }
+.chp-hl-sub select { width: auto; padding: 5px 7px; }
+.chp-hl-sub .chp-wrap { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--chp-ink-soft); }
+.chp-hl-sub input[type="range"] { width: 92px; }
+.chp-hl[data-off="true"] { opacity: 0.5; }
+
+.chp-cssout {
+    font-family: var(--chp-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f4f2ec;
+    border: 1px solid var(--chp-border);
+    border-radius: 8px;
+    padding: 10px 11px;
+    color: #33372f;
+    margin: 0;
+}
+
+/* ---- preview stage ---- */
+.chp-stage {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+        linear-gradient(45deg, #eceae3 25%, transparent 25%, transparent 75%, #eceae3 75%) 0 0 / 22px 22px,
+        linear-gradient(45deg, #eceae3 25%, #f4f2ec 25%, #f4f2ec 75%, #eceae3 75%) 11px 11px / 22px 22px;
+}
+.chp-scaler { position: relative; }
+.chp-frame {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: top left;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    overflow: hidden;
+    background: #000;
+}
+
+/* ============ COVER REPLICA (mirrors the theme) ============ */
+.chp-cv-cover {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* masthead + foot: solid bands, auto height (flex:none) */
+.chp-cv-mast, .chp-cv-foot { flex: none; color: #fff; }
+.chp-cv-mast {
+    position: relative;
+    isolation: isolate;
+    /* the theme's default two greens, static here (VeRB would generate them live) */
+    background: linear-gradient(178deg, #2f5d50, #1f4a3a);
+}
+.chp-cv-mast-top { display: flex; align-items: center; gap: 16px; }
+.chp-cv-menu {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    box-sizing: border-box;
+    color: #fff;
+    background-color: #2f5d50;   /* var(--ghost-accent-color) in the theme; this is its current value */
+    border: 1.5px solid #fff;
+    border-radius: 6px;
+}
+.chp-cv-menu svg { width: 22px; height: 22px; }
+.chp-cv-wordmark {
+    flex: none;
+    font-family: "EB Garamond", Georgia, serif;
+    font-weight: 600;
+    font-size: 34px;   /* proxy for the ~72px-tall wordmark image */
+    line-height: 1;
+    color: #fff;
+    white-space: nowrap;
+}
+.chp-cv-promise {
+    flex: 1 1 auto;
+    margin: 0;
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 16px;   /* 1.6rem @ 10px base */
+    font-weight: 600;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+.chp-cv-publisher {
+    margin: 7.5px 0 0;              /* 0.75rem — was 0.6rem, raised 25% on request */
+    font-family: var(--chp-mono);
+    font-size: 12px;              /* 1.2rem */
+    letter-spacing: 0.08em;
+    line-height: 1.5;
+    text-align: center;
+    opacity: 0.9;
+}
+
+.chp-cv-foot {
+    background: #1f4a3a;   /* --hs-foot-bg default (lower green) */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--chp-mono);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.chp-cv-foot .chp-cv-social { display: flex; gap: 10px; }
+.chp-cv-foot .chp-cv-social span { width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,0.55); }
+
+/* the photo band — the only flexible one */
+.chp-cv-photo {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: #16211c;
+}
+.chp-cv-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
+}
+
+/* the headline grid — mirrors .hs-headlines-stage and its cell rules */
+.chp-cv-stage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(3, 1fr);
+    height: 100%;
+    container-type: inline-size;
+}
+.chp-cv-cell { display: flex; align-items: center; }
+.chp-cv-cell:nth-child(-n+2) { align-self: start; }
+.chp-cv-cell:nth-child(n+5)  { align-self: end; }
+.chp-cv-cell:nth-child(odd)  { justify-content: flex-start; }
+.chp-cv-cell:nth-child(even) { justify-content: flex-end; }
+.chp-cv-cell:nth-child(even) .chp-cv-text { text-align: right; }
+
+/* NO BOX — matches the theme exactly: no fill, no blur, no border, no radius, no padding. The
+   headline sits directly on the photo; everything holding it legible lives on .chp-cv-text. */
+.chp-cv-item {
+    display: block;
+    max-width: calc(var(--w, 90) * 1cqw);
+    color: #fff;
+    text-decoration: none;
+}
+.chp-cv-text {
+    margin: 0;
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 18px;                  /* 1.8rem = m */
+    line-height: 1.4;
+    paint-order: stroke fill;
+    -webkit-text-stroke: var(--keyline, 0.1em) #000;
+    text-shadow:
+        0 0 0.4em rgb(0 0 0 / var(--halo-1, 0.7)),
+        0 1px 3px rgb(0 0 0 / var(--halo-2, 0.6));
+}
+.chp-cv-text.is-s { font-size: 13px; }   /* 1.3rem */
+.chp-cv-text.is-l { font-size: 26px; }   /* 2.6rem */
+.chp-cv-text.is-hover,
+.chp-cv-item:hover .chp-cv-text {
+    text-shadow:
+        0 0 0.4em rgb(0 0 0 / var(--halo-1, 0.7)),
+        0 1px 3px rgb(0 0 0 / var(--halo-2, 0.6)),
+        0 0 10px rgb(255 255 255 / 0.55);
+}
+
+.chp-note {
+    font-size: 11.5px;
+    color: var(--chp-ink-soft);
+    line-height: 1.5;
+    margin: 4px 0 0;
+}
+</style>
+</head>
+<body>
+<div class="chp-app">
+
+    <header class="chp-head">
+        <h1>Cover headline preview</h1>
+        <p class="chp-sub">In Hooker's Shadow — the photo band is leftover space, so proportions follow the viewport.</p>
+        <div class="chp-readout" id="chp-readout">photo band: —</div>
+    </header>
+
+    <aside class="chp-panel">
+
+        <section class="chp-group">
+            <h2>Viewport</h2>
+            <div class="chp-row">
+                <select id="chp-vp">
+                    <option value="1920x1080">Desktop — 1920 × 1080</option>
+                    <option value="1440x900" selected>Desktop — 1440 × 900</option>
+                    <option value="1366x768">Laptop — 1366 × 768</option>
+                    <option value="1280x800">Laptop — 1280 × 800</option>
+                    <option value="834x1112">Tablet portrait — 834 × 1112</option>
+                    <option value="430x932">Phone — 430 × 932</option>
+                    <option value="390x844">Phone — 390 × 844</option>
+                    <option value="360x780">Phone — 360 × 780</option>
+                    <option value="custom">Custom…</option>
+                </select>
+            </div>
+            <div class="chp-row chp-inline" id="chp-vp-custom" hidden>
+                <div><label>Width</label><input type="number" id="chp-vp-w" value="1440" min="280" max="3840"></div>
+                <div><label>Height</label><input type="number" id="chp-vp-h" value="900" min="400" max="2400"></div>
+            </div>
+            <p class="chp-note" id="chp-vp-note"></p>
+        </section>
+
+        <section class="chp-group">
+            <h2>Background</h2>
+            <div class="chp-row">
+                <div class="chp-btnrow" id="chp-bg-presets">
+                    <button class="chp-btn is-on" data-bg="white">White</button>
+                    <button class="chp-btn" data-bg="paleleaf">Pale leaf</button>
+                    <button class="chp-btn" data-bg="sky">Bright sky</button>
+                    <button class="chp-btn" data-bg="busy">Busy light</button>
+                    <button class="chp-btn" data-bg="dark">Dark</button>
+                </div>
+            </div>
+            <div class="chp-row">
+                <label>Image URL</label>
+                <input type="url" id="chp-bg-url" placeholder="https://…  (paste a real cover image)">
+            </div>
+            <div class="chp-row">
+                <label>…or upload</label>
+                <input type="file" id="chp-bg-file" accept="image/*">
+            </div>
+        </section>
+
+        <section class="chp-group">
+            <h2>Keyline &amp; halo</h2>
+            <div class="chp-row">
+                <label>Keyline (stroke) width <span class="chp-slider-val" id="chp-v-keyline">0.10em</span></label>
+                <input type="range" id="chp-keyline" min="0" max="20" step="1" value="10">
+                <p class="chp-note">Opaque black, in em so it scales with s/m/l. Centred before paint-order redistributes it, so the visible edge is roughly half this value.</p>
+            </div>
+            <div class="chp-row">
+                <label>Halo strength <span class="chp-slider-val" id="chp-v-halo">100%</span></label>
+                <input type="range" id="chp-halo" min="0" max="100" step="1" value="100">
+                <p class="chp-note">Scales both shadow layers together (the wide blurred glow and the tighter drop shadow), keeping their relative geometry fixed as in the theme. This is the part doing most of the legibility work — take the keyline down before this if the effect looks heavy.</p>
+            </div>
+            <div class="chp-row">
+                <label class="chp-wrap" style="font-size:12px;color:var(--chp-ink-soft)">
+                    <input type="checkbox" id="chp-hover" style="accent-color:var(--chp-accent)">
+                    Preview hover state (adds the white glow the theme adds on :hover, on top of the halo — not swapped for it)
+                </label>
+            </div>
+            <div class="chp-row">
+                <button class="chp-btn" id="chp-reset">Reset to theme defaults</button>
+            </div>
+            <div class="chp-row">
+                <label>Resulting <code>.hs-headlines-text</code></label>
+                <pre class="chp-cssout" id="chp-cssout"></pre>
+            </div>
+        </section>
+
+        <section class="chp-group">
+            <h2>Headlines</h2>
+            <div id="chp-hls"></div>
+            <p class="chp-note">Cells fill left→right, top→bottom (1–2 top, 3–4 middle, 5–6 bottom). Odd cells sit left, even cells right. Width is a % of the whole photo band, as in the theme.</p>
+        </section>
+
+    </aside>
+
+    <main class="chp-stage" id="chp-stage">
+        <div class="chp-scaler" id="chp-scaler">
+            <div class="chp-frame" id="chp-frame"></div>
+        </div>
+    </main>
+
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    // ---- state -------------------------------------------------------------
+    var state = {
+        vp: { w: 1440, h: 900 },
+        bg: { kind: "preset", value: "white" },   // preset | url
+        box: { keyline: 10, halo: 100, hover: false },   // keyline in 0.01em steps, halo in %
+        headlines: [
+            { on: true,  text: "The orchid that dresses up as a wasp", size: "l", width: 46 },
+            { on: true,  text: "A moss that shrugged off the deep freeze", size: "m", width: 46 },
+            { on: true,  text: "Moss genomes push the land-plant clock back", size: "m", width: 54 },
+            { on: true,  text: "Field notes from the forest canopy", size: "s", width: 38 },
+            { on: false, text: "Fifth story", size: "m", width: 42 },
+            { on: true,  text: "Why some seeds wait a century to germinate", size: "m", width: 50 }
+        ]
+    };
+
+    var DEFAULTS = { keyline: 10, halo: 100, hover: false };
+
+    var BG_PRESETS = {
+        white:    { css: "#ffffff" },
+        paleleaf: { css: "linear-gradient(135deg,#eef3e6,#dfe9d2 55%,#cbdcc0)" },
+        sky:      { css: "linear-gradient(180deg,#eaf3fb,#cfe4f6 60%,#bcd8ef)" },
+        busy:     { css: "repeating-linear-gradient(60deg,#f4f1e8 0 14px,#e7 e2 d2 14px 28px), radial-gradient(circle at 30% 40%,#fff,#e9e4d6)" },
+        dark:     { css: "linear-gradient(160deg,#2a2f28,#1b201a 70%,#12160f)" }
+    };
+    // (fix the busy value cleanly)
+    BG_PRESETS.busy.css = "repeating-linear-gradient(60deg,#f6f3ea 0 16px,#e6e1d1 16px 32px)";
+
+    // ---- element refs ------------------------------------------------------
+    var $ = function (id) { return document.getElementById(id); };
+    var stage = $("chp-stage"), scaler = $("chp-scaler"), frame = $("chp-frame");
+    var readout = $("chp-readout"), vpNote = $("chp-vp-note"), cssout = $("chp-cssout");
+
+    // ---- helpers -----------------------------------------------------------
+    function clampGutter(vw) { return Math.max(20, Math.min(0.04 * vw, 48)); }
+    function esc(s) {
+        return String(s).replace(/[&<>"]/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+        });
+    }
+
+    function boxVars() {
+        var keylineEm = (state.box.keyline / 100).toFixed(2);   // slider is 0-20 -> 0-0.20em
+        var haloFrac = state.box.halo / 100;                    // 0-100% scales both layers together
+        return {
+            keyline: keylineEm + "em",
+            halo1: (0.7 * haloFrac).toFixed(3),   // the wide blurred glow — theme default 0.7
+            halo2: (0.6 * haloFrac).toFixed(3)    // the tighter drop shadow — theme default 0.6
+        };
+    }
+
+    function currentBgCss() {
+        if (state.bg.kind === "url") return null;   // handled as <img>/background-image
+        return BG_PRESETS[state.bg.value] ? BG_PRESETS[state.bg.value].css : "#ffffff";
+    }
+
+    // ---- render the cover replica -----------------------------------------
+    function render() {
+        var vw = state.vp.w, vh = state.vp.h;
+        var desktop = vw >= 880;
+        var showPromise = vw >= 400;    // theme drops the masthead promise under 400px
+        var coverW = desktop ? Math.round(vw / 2) : vw;
+        var coverH = vh;
+        var gutter = clampGutter(vw);
+        var padV = desktop ? gutter / 2 : gutter;       // theme halves vertical padding on desktop
+
+        var bv = boxVars();
+        var bgCss = currentBgCss();
+        var imgStyle = state.bg.kind === "url"
+            ? 'background-image:url(' + JSON.stringify(state.bg.value) + ')'
+            : 'background:' + bgCss;
+
+        var cells = "";
+        for (var i = 0; i < 6; i++) {
+            var h = state.headlines[i];
+            var inner = "";
+            if (h && h.on && h.text.trim()) {
+                var sizeClass = h.size === "s" ? " is-s" : h.size === "l" ? " is-l" : "";
+                var hoverClass = state.box.hover ? " is-hover" : "";
+                inner = '<a class="chp-cv-item" style="--w:' + h.width + '">' +
+                            '<p class="chp-cv-text' + sizeClass + hoverClass + '">' + esc(h.text) + '</p>' +
+                        '</a>';
+            }
+            cells += '<div class="chp-cv-cell">' + inner + '</div>';
+        }
+
+        frame.innerHTML =
+            '<div class="chp-cv-cover" style="' +
+                '--keyline:' + bv.keyline + ';--halo-1:' + bv.halo1 + ';--halo-2:' + bv.halo2 + '">' +
+
+                '<header class="chp-cv-mast" style="padding:' + padV + 'px ' + gutter + 'px">' +
+                    '<div class="chp-cv-mast-top" style="gap:' + Math.min(gutter, 16) + 'px">' +
+                        '<div class="chp-cv-menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg></div>' +
+                        '<div class="chp-cv-wordmark">Botany One</div>' +
+                        (showPromise ? '<p class="chp-cv-promise">The nonprofit plant magazine</p>' : '') +
+                    '</div>' +
+                    '<p class="chp-cv-publisher">In the lab, in the fields &amp; in your windowsill</p>' +
+                '</header>' +
+
+                '<div class="chp-cv-photo">' +
+                    '<div class="chp-cv-img" style="' + imgStyle + '"></div>' +
+                    '<div class="chp-cv-stage" style="padding:' + gutter + 'px">' + cells + '</div>' +
+                '</div>' +
+
+                '<footer class="chp-cv-foot" style="padding:' + padV + 'px ' + gutter + 'px">' +
+                    '<span>© ' + new Date().getFullYear() + ' Botany One · CC BY</span>' +
+                    '<span class="chp-cv-social"><span></span><span></span><span></span><span></span></span>' +
+                '</footer>' +
+
+            '</div>';
+
+        // scale the true-size replica to fit the stage
+        var pane = stage.getBoundingClientRect();
+        var availW = pane.width - 48, availH = pane.height - 48;
+        var k = Math.min(availW / coverW, availH / coverH);
+        k = Math.max(0.1, Math.min(k, 1.6));
+        frame.style.width = coverW + "px";
+        frame.style.height = coverH + "px";
+        frame.style.transform = "scale(" + k + ")";
+        scaler.style.width = (coverW * k) + "px";
+        scaler.style.height = (coverH * k) + "px";
+
+        // measure the photo band and report true px
+        var photo = frame.querySelector(".chp-cv-photo");
+        var pr = photo.getBoundingClientRect();
+        var pxW = Math.round(pr.width / k), pxH = Math.round(pr.height / k);
+        var ratio = pxH ? (pxW / pxH) : 0;
+        readout.innerHTML = "photo band: <b>" + pxW + " × " + pxH + "</b> px · " +
+                            ratio.toFixed(2) + " : 1 · " + (ratio >= 1 ? "landscape" : "portrait");
+
+        vpNote.textContent = desktop
+            ? "Desktop: the cover is the sticky left half — " + coverW + "px wide × full height."
+            : "Mobile: full width, minus the two bands and the 88px cover-line reserve." +
+              (showPromise ? "" : " Promise hidden (under 400px).");
+
+        renderCssOut(bv);
+    }
+
+    function renderCssOut(bv) {
+        var lines = [
+            ".hs-headlines-text {",
+            "    --hs-headline-keyline: " + bv.keyline + ";",
+            "    paint-order: stroke fill;",
+            "    -webkit-text-stroke: var(--hs-headline-keyline) #000;",
+            "    text-shadow:",
+            "        0 0 0.4em rgb(0 0 0 / " + bv.halo1 + "),",
+            "        0 1px 3px rgb(0 0 0 / " + bv.halo2 + ");",
+            "}"
+        ];
+        cssout.textContent = lines.join("\n");
+    }
+
+    // ---- build the headline editor ----------------------------------------
+    function buildHeadlineEditor() {
+        var wrap = $("chp-hls");
+        wrap.innerHTML = "";
+        state.headlines.forEach(function (h, i) {
+            var row = document.createElement("div");
+            row.className = "chp-hl";
+            row.setAttribute("data-off", (!h.on).toString());
+            row.innerHTML =
+                '<div class="chp-hl-top">' +
+                    '<input type="checkbox" ' + (h.on ? "checked" : "") + ' data-k="on" data-i="' + i + '">' +
+                    '<span class="chp-hl-name">Cell ' + (i + 1) + ' · ' + (i % 2 === 0 ? "left" : "right") +
+                        " · " + (i < 2 ? "top" : i < 4 ? "middle" : "bottom") + '</span>' +
+                '</div>' +
+                '<div class="chp-hl-grid">' +
+                    '<input type="text" value="' + esc(h.text) + '" data-k="text" data-i="' + i + '" placeholder="Headline text">' +
+                '</div>' +
+                '<div class="chp-hl-sub" style="margin-top:7px">' +
+                    '<select data-k="size" data-i="' + i + '">' +
+                        '<option value="s"' + (h.size === "s" ? " selected" : "") + '>Small</option>' +
+                        '<option value="m"' + (h.size === "m" ? " selected" : "") + '>Medium</option>' +
+                        '<option value="l"' + (h.size === "l" ? " selected" : "") + '>Large</option>' +
+                    '</select>' +
+                    '<div class="chp-wrap">w<input type="range" min="15" max="100" step="1" value="' + h.width + '" data-k="width" data-i="' + i + '"><span data-wv="' + i + '">' + h.width + '%</span></div>' +
+                '</div>';
+            wrap.appendChild(row);
+        });
+    }
+
+    // ---- events ------------------------------------------------------------
+    $("chp-vp").addEventListener("change", function (e) {
+        var v = e.target.value;
+        var custom = $("chp-vp-custom");
+        if (v === "custom") { custom.hidden = false; applyCustomVp(); }
+        else {
+            custom.hidden = true;
+            var p = v.split("x");
+            state.vp = { w: parseInt(p[0], 10), h: parseInt(p[1], 10) };
+            render();
+        }
+    });
+    function applyCustomVp() {
+        state.vp = {
+            w: parseInt($("chp-vp-w").value, 10) || 1440,
+            h: parseInt($("chp-vp-h").value, 10) || 900
+        };
+        render();
+    }
+    $("chp-vp-w").addEventListener("input", applyCustomVp);
+    $("chp-vp-h").addEventListener("input", applyCustomVp);
+
+    // background presets
+    $("chp-bg-presets").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-bg]");
+        if (!b) return;
+        [].forEach.call(this.querySelectorAll(".chp-btn"), function (x) { x.classList.remove("is-on"); });
+        b.classList.add("is-on");
+        state.bg = { kind: "preset", value: b.getAttribute("data-bg") };
+        $("chp-bg-url").value = "";
+        render();
+    });
+    $("chp-bg-url").addEventListener("input", function (e) {
+        var u = e.target.value.trim();
+        if (u) {
+            state.bg = { kind: "url", value: u };
+            [].forEach.call($("chp-bg-presets").querySelectorAll(".chp-btn"), function (x) { x.classList.remove("is-on"); });
+        }
+        render();
+    });
+    $("chp-bg-file").addEventListener("change", function (e) {
+        var f = e.target.files && e.target.files[0];
+        if (!f) return;
+        var r = new FileReader();
+        r.onload = function () {
+            state.bg = { kind: "url", value: r.result };
+            [].forEach.call($("chp-bg-presets").querySelectorAll(".chp-btn"), function (x) { x.classList.remove("is-on"); });
+            $("chp-bg-url").value = "";
+            render();
+        };
+        r.readAsDataURL(f);
+    });
+
+    // keyline/halo tuning
+    function bindSlider(id, key, fmt) {
+        $(id).addEventListener("input", function (e) {
+            state.box[key] = parseInt(e.target.value, 10);
+            $("chp-v-" + key).textContent = fmt(state.box[key]);
+            render();
+        });
+    }
+    bindSlider("chp-keyline", "keyline", function (v) { return (v / 100).toFixed(2) + "em"; });
+    bindSlider("chp-halo", "halo", function (v) { return v + "%"; });
+
+    $("chp-hover").addEventListener("change", function (e) {
+        state.box.hover = e.target.checked;
+        render();
+    });
+
+    $("chp-reset").addEventListener("click", function () {
+        state.box = Object.assign({}, DEFAULTS);
+        $("chp-keyline").value = DEFAULTS.keyline; $("chp-v-keyline").textContent = (DEFAULTS.keyline / 100).toFixed(2) + "em";
+        $("chp-halo").value = DEFAULTS.halo;       $("chp-v-halo").textContent = DEFAULTS.halo + "%";
+        $("chp-hover").checked = DEFAULTS.hover;
+        render();
+    });
+
+    // headline editor (delegated)
+    $("chp-hls").addEventListener("input", function (e) {
+        var el = e.target, i = el.getAttribute("data-i"), k = el.getAttribute("data-k");
+        if (i === null) return;
+        i = parseInt(i, 10);
+        if (k === "on") { state.headlines[i].on = el.checked; el.closest(".chp-hl").setAttribute("data-off", (!el.checked).toString()); }
+        else if (k === "text") state.headlines[i].text = el.value;
+        else if (k === "size") state.headlines[i].size = el.value;
+        else if (k === "width") { state.headlines[i].width = parseInt(el.value, 10); document.querySelector('[data-wv="' + i + '"]').textContent = el.value + "%"; }
+        render();
+    });
+
+    // re-fit on resize
+    var rt;
+    window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(render, 120); });
+
+    // ---- go ----------------------------------------------------------------
+    buildHeadlineEditor();
+    render();
+})();
+</script>
+</body>
+</html>
