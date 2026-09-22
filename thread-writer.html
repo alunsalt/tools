@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thread Writer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  .tw-app {
+    --tw-bg: #eef2ec; --tw-paper: #ffffff; --tw-ink: #1d261c; --tw-muted: #5f6d5c;
+    --tw-rule: #d5ddd2; --tw-green: #3a6b35; --tw-green-pale: #e2ecdf;
+    --tw-warn: #8a5300; --tw-warn-bg: #fbf1dc; --tw-over: #b3261e;
+    --tw-bsky: #1185fe; --tw-masto: #6364ff;
+    font-family: 'DM Sans', system-ui, sans-serif; color: var(--tw-ink);
+    display: grid; grid-template-columns: 3fr 4fr 3fr; height: 100vh; margin: 0;
+    background: var(--tw-bg);
+  }
+  .tw-app *, .tw-app *::before, .tw-app *::after { box-sizing: border-box; }
+  body { margin: 0; }
+  .tw-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .tw-col--draft { background: var(--tw-paper); border-left: 1px solid var(--tw-rule); border-right: 1px solid var(--tw-rule); }
+  .tw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--tw-rule); }
+  .tw-title { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .tw-mark { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .tw-meta { font-size: 13px; color: var(--tw-muted); font-variant-numeric: tabular-nums; }
+
+  /* Draft pane */
+  .tw-controls { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid var(--tw-rule); font-size: 14px; }
+  .tw-controls label { font-weight: 500; }
+  .tw-num { width: 5.5em; font: inherit; padding: 4px 8px; border: 1px solid var(--tw-rule); border-radius: 6px; color: var(--tw-ink); }
+  .tw-range-wrap { display: flex; align-items: center; gap: 10px; }
+  .tw-range { flex: 1; accent-color: var(--tw-green); }
+  .tw-range-val { font-variant-numeric: tabular-nums; width: 3em; text-align: right; }
+  .tw-help { grid-column: 1 / -1; margin: 0; color: var(--tw-muted); font-size: 13px; line-height: 1.45; max-width: 60ch; }
+  .tw-help code { font-size: 12.5px; background: var(--tw-green-pale); color: var(--tw-green); padding: 1px 5px; border-radius: 4px; }
+  .tw-input { flex: 1; min-height: 0; width: 100%; resize: none; border: 0; padding: 20px;
+    font: 400 16px/1.6 'DM Sans', system-ui, sans-serif; color: var(--tw-ink); background: transparent; }
+  .tw-input:focus { outline: none; box-shadow: inset 3px 0 0 var(--tw-green); }
+  .tw-input::placeholder { color: #93a08f; }
+
+  /* Thread previews: posts hang off a stem */
+  .tw-list { flex: 1; overflow-y: auto; padding: 18px 16px 40px; margin: 0; list-style: none; }
+  .tw-empty { color: var(--tw-muted); font-size: 14px; padding: 4px 4px 0 40px; }
+  .tw-post { position: relative; padding-left: 38px; padding-bottom: 14px; }
+  .tw-post::before { content: ''; position: absolute; left: 11px; top: 22px; bottom: 0; width: 2px; background: var(--tw-green); opacity: .45; }
+  .tw-post:last-child::before { display: none; }
+  .tw-node { position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--tw-green); color: #fff; font: 600 11.5px/24px 'Poppins', sans-serif; text-align: center; font-variant-numeric: tabular-nums; }
+  .tw-card { background: var(--tw-paper); border: 1px solid var(--tw-rule); border-radius: 8px; overflow: hidden; }
+  .tw-text { margin: 0; padding: 12px 14px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .tw-suffix { color: var(--tw-muted); }
+  .tw-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 6px 8px 6px 14px; border-top: 1px solid var(--tw-rule); font-size: 12.5px; color: var(--tw-muted); }
+  .tw-count { font-variant-numeric: tabular-nums; }
+  .tw-flag { background: var(--tw-warn-bg); color: var(--tw-warn); border-radius: 4px; padding: 1px 6px; margin-right: auto; cursor: help; }
+  .tw-copy { font: 500 12.5px 'DM Sans', sans-serif; color: var(--tw-green); background: none; border: 1px solid transparent;
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .tw-copy:hover { background: var(--tw-green-pale); }
+  .tw-copy.is-done { color: var(--tw-muted); }
+  .tw-post.is-over .tw-card { border-color: var(--tw-over); }
+  .tw-post.is-over .tw-count { color: var(--tw-over); font-weight: 500; }
+  .tw-post.is-over .tw-node { background: var(--tw-over); }
+
+  .tw-app :focus-visible { outline: 2px solid var(--tw-green); outline-offset: 2px; }
+  .tw-input:focus-visible { outline: none; }
+
+  @media (max-width: 900px) {
+    .tw-app { grid-template-columns: 1fr; height: auto; }
+    .tw-col--draft { order: -1; border: 0; border-bottom: 1px solid var(--tw-rule); }
+    .tw-input { min-height: 45vh; }
+    .tw-list { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<div class="tw-app" id="tw-app">
+  <section class="tw-col" aria-labelledby="tw-bsky-title">
+    <header class="tw-head">
+      <h2 class="tw-title" id="tw-bsky-title"><span class="tw-mark" style="background:var(--tw-bsky)"></span>Bluesky</h2>
+      <span class="tw-meta" id="tw-bsky-meta">300 per post</span>
+    </header>
+    <ol class="tw-list" id="tw-bsky-list"></ol>
+  </section>
+
+  <section class="tw-col tw-col--draft" aria-labelledby="tw-draft-title">
+    <header class="tw-head">
+      <h1 class="tw-title" id="tw-draft-title">Thread draft</h1>
+      <span class="tw-meta" id="tw-draft-meta">0 words</span>
+    </header>
+    <div class="tw-controls">
+      <label for="tw-masto-limit">Mastodon limit</label>
+      <div><input class="tw-num" id="tw-masto-limit" type="number" min="100" max="10000" step="10" value="500"></div>
+      <label for="tw-threshold">End at a sentence if</label>
+      <div class="tw-range-wrap">
+        <input class="tw-range" id="tw-threshold" type="range" min="50" max="100" step="5" value="75">
+        <span class="tw-range-val" id="tw-threshold-val">75%</span>
+      </div>
+      <p class="tw-help">Posts end at a sentence when they're at least this full. Otherwise the sentence is split, preferring a comma or dash, with at least three words either side. Put <code>---</code> on a line of its own to force a break on both. <code>---b---</code> breaks Bluesky only and <code>---m---</code> Mastodon only; the other platform ignores them.</p>
+    </div>
+    <textarea class="tw-input" id="tw-input" spellcheck="true" placeholder="Write or paste your thread here."></textarea>
+  </section>
+
+  <section class="tw-col" aria-labelledby="tw-masto-title">
+    <header class="tw-head">
+      <h2 class="tw-title" id="tw-masto-title"><span class="tw-mark" style="background:var(--tw-masto)"></span>Mastodon</h2>
+      <span class="tw-meta" id="tw-masto-meta">500 per post</span>
+    </header>
+    <ol class="tw-list" id="tw-masto-list"></ol>
+  </section>
+</div>
+
+<script>
+(function () {
+'use strict';
+/*CORE-START*/
+var ABBR = new Set(['e.g.','i.e.','al.','cf.','sp.','spp.','subsp.','ssp.','var.','f.','dr.','prof.','mr.','mrs.','ms.','st.','vs.','c.','ca.','approx.','fig.','figs.','no.','vol.','pp.','p.','eds.','ed.','jr.','sr.','aff.','sect.']);
+var CLOSERS = /["'\u201d\u2019)\]]+$/;
+var URL_RE = /https?:\/\/[^\s<>"]+/g;
+
+var segmenter = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+function graphemes(s) {
+  if (!segmenter) return Array.from(s).length;
+  var n = 0; for (var _ of segmenter.segment(s)) n++; return n;
+}
+function codepoints(s) { return Array.from(s).length; }
+
+// Trim trailing punctuation the platforms don't treat as part of a link
+function cleanUrl(u) {
+  u = u.replace(/[.,;:!?"'\u201d\u2019]+$/, '');
+  if (u.endsWith(')') && u.indexOf('(') === -1) u = u.slice(0, -1);
+  return u;
+}
+// Official Bluesky app: host + path, path cut to 13 chars + '...' when over 15
+function bskyShortUrl(u) {
+  try {
+    var p = new URL(u);
+    var path = (p.pathname === '/' ? '' : p.pathname) + p.search + p.hash;
+    return path.length > 15 ? p.host + path.slice(0, 13) + '...' : p.host + path;
+  } catch (e) { return u; }
+}
+function countBsky(s) {
+  return graphemes(s.replace(URL_RE, function (m) {
+    var u = cleanUrl(m); return bskyShortUrl(u) + m.slice(u.length);
+  }));
+}
+function countMasto(s) {
+  return codepoints(s.replace(URL_RE, function (m) {
+    var u = cleanUrl(m); return 'x'.repeat(23) + m.slice(u.length);
+  }));
+}
+
+function tokenize(raw) {
+  var lines = raw.replace(/\r\n?/g, '\n').split('\n');
+  var toks = [];
+  lines.forEach(function (line) {
+    var t = line.trim(), last = toks[toks.length - 1];
+    if (t === '---') { if (last) { last.forced = true; last.sep = '\n\n'; } return; }
+    if (t === '') { if (last && !last.forced) last.sep = '\n\n'; return; }
+    if (last && last.sep === null) last.sep = '\n';
+    t.split(/\s+/).forEach(function (w, i, arr) {
+      toks.push({ t: w, sep: i < arr.length - 1 ? ' ' : null, forced: false });
+    });
+  });
+  if (toks.length) toks[toks.length - 1].sep = '';
+  toks.forEach(function (k) { if (k.sep === null) k.sep = ' '; });
+  return toks;
+}
+
+// Platform-specific breaks: ---b--- (Bluesky) and ---m--- (Mastodon).
+// The platform's own marker becomes a forced break; the other platform's
+// marker vanishes, leaving a space, or a paragraph break if one surrounds it.
+function prepare(raw, platform) {
+  var own = platform === 'b' ? 'b' : 'm', other = own === 'b' ? 'm' : 'b';
+  function markerRe(letter) { return new RegExp('\\s*---' + letter + '---\\s*', 'gi'); }
+  return raw.replace(/\r\n?/g, '\n')
+    .replace(markerRe(other), function (m) { return /\n[ \t]*\n/.test(m) ? '\n\n' : ' '; })
+    .replace(markerRe(own), '\n---\n');
+}
+
+function isSentenceEnd(tok, next) {
+  var core = tok.replace(CLOSERS, '');
+  if (!/[.!?\u2026]$/.test(core)) return false;
+  if (/[!?\u2026]$/.test(core)) return true;
+  if (ABBR.has(core.toLowerCase())) return false;
+  if (/^[A-Z]\.$/.test(core)) return false;            // initials, genus abbreviations
+  if (/^([A-Za-z]\.){2,}$/.test(core)) return false;   // U.K., e.g. variants
+  if (next && !/^["'\u201c\u2018(\[]?[A-Z0-9]/.test(next)) return false;
+  return true;
+}
+function isClauseEnd(tok) {
+  if (/^[\u2014\u2013-]+$/.test(tok)) return true;
+  return /[,;:\u2014\u2013]$/.test(tok.replace(CLOSERS, ''));
+}
+
+// Annotate boundaries and sentence spans once per input
+function analyse(toks) {
+  var N = toks.length, W = [0], sentStart = [], sentEnd = [];
+  toks.forEach(function (k, i) {
+    var next = toks[i + 1] ? toks[i + 1].t : null;
+    k.isWord = /[^\p{P}\s]/u.test(k.t);
+    k.sentB = k.forced || k.sep === '\n\n' || k.sep === '\n' || i === N - 1 || isSentenceEnd(k.t, next);
+    k.clauseB = !k.sentB && isClauseEnd(k.t);
+    W.push(W[i] + (k.isWord ? 1 : 0));
+  });
+  var start = 0;
+  for (var i = 0; i < N; i++) {
+    sentStart[i] = start;
+    if (toks[i].sentB) { for (var j = start; j <= i; j++) sentEnd[j] = i; start = i + 1; }
+  }
+  return { toks: toks, N: N, W: W, sentStart: sentStart, sentEnd: sentEnd };
+}
+
+function splitFor(A, counter, cap, threshold) {
+  var toks = A.toks, N = A.N, W = A.W;
+  var tl = toks.map(function (k) { return counter(k.t); });
+  var sl = toks.map(function (k) { return k.sep.length; });
+  function len(s, j) { var n = 0; for (var i = s; i <= j; i++) n += tl[i] + (i < j ? sl[i] : 0); return n; }
+  function valid(s, j) {
+    var before = W[j + 1] - W[Math.max(s, A.sentStart[j])];
+    var after = W[A.sentEnd[j] + 1] - W[j + 1];
+    return before >= 3 && after >= 3;
+  }
+  var posts = [], s = 0;
+  while (s < N) {
+    var e = -1, run = 0;
+    for (var j = s; j < N; j++) {
+      run += tl[j] + (j > s ? sl[j - 1] : 0);
+      if (run > cap) break;
+      e = j;
+      if (toks[j].forced) break;
+    }
+    if (e < 0) { posts.push({ s: s, e: s, relaxed: false }); s = s + 1; continue; }
+    if (e === N - 1 || toks[e].forced) { posts.push({ s: s, e: e, relaxed: false }); s = e + 1; continue; }
+
+    var sb = -1, cb = -1, wb = -1;
+    for (j = e; j >= s; j--) {
+      if (sb < 0 && toks[j].sentB) sb = j;
+      if (!toks[j].sentB && valid(s, j)) {
+        if (wb < 0) wb = j;
+        if (cb < 0 && toks[j].clauseB) cb = j;
+      }
+    }
+    var fill = function (j) { return len(s, j) / cap; };
+    var pick = -1, relaxed = false;
+    if (sb >= 0 && fill(sb) >= threshold) pick = sb;
+    else {
+      var cand = (cb >= 0 && fill(cb) >= threshold) ? cb : wb;
+      if (cand >= 0 && cand > sb && (sb < 0 || fill(cand) >= threshold)) pick = cand;
+      else if (sb >= 0) pick = sb;
+      else if (cand >= 0) pick = cand;
+      else { pick = e; relaxed = true; }
+    }
+    posts.push({ s: s, e: pick, relaxed: relaxed });
+    s = pick + 1;
+  }
+  return posts.map(function (p) {
+    var text = '';
+    for (var i = p.s; i <= p.e; i++) text += toks[i].t + (i < p.e ? toks[i].sep : '');
+    return { text: text, relaxed: p.relaxed };
+  });
+}
+
+function buildMasto(A, limit, threshold) {
+  var whole = splitFor(A, countMasto, limit, threshold);
+  if (whole.length <= 1) return whole.map(function (p) { p.suffix = ''; return p; });
+  var d = 1, parts;
+  for (;;) {
+    parts = splitFor(A, countMasto, limit - (4 + 2 * d), threshold);
+    if (String(parts.length).length <= d) break;
+    d++;
+  }
+  var n = parts.length;
+  return parts.map(function (p, i) { p.suffix = ' (' + (i + 1) + '/' + n + ')'; return p; });
+}
+/*CORE-END*/
+
+var $ = function (id) { return document.getElementById(id); };
+var input = $('tw-input'), limitEl = $('tw-masto-limit'), thEl = $('tw-threshold');
+var BSKY_LIMIT = 300;
+
+function copyText(text, btn) {
+  function done() { btn.textContent = 'Copied'; btn.classList.add('is-done');
+    setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('is-done'); }, 1400); }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+  } else fallback();
+  function fallback() {
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Copy failed'; }
+    document.body.removeChild(ta);
+  }
+}
+
+function el(tag, cls, text) {
+  var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n;
+}
+
+function render(list, posts, limit, counter) {
+  list.textContent = '';
+  if (!posts.length) { list.appendChild(el('li', 'tw-empty', 'Your thread will appear here as you type.')); return; }
+  posts.forEach(function (p, i) {
+    var suffix = p.suffix || '', full = p.text + suffix, n = counter(full);
+    var li = el('li', 'tw-post' + (n > limit ? ' is-over' : ''));
+    li.appendChild(el('span', 'tw-node', String(i + 1)));
+    var card = el('div', 'tw-card');
+    var pre = el('p', 'tw-text', p.text);
+    if (suffix) pre.appendChild(el('span', 'tw-suffix', suffix));
+    card.appendChild(pre);
+    var foot = el('div', 'tw-foot');
+    var btn = el('button', 'tw-copy', 'Copy'); btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy post ' + (i + 1));
+    btn.addEventListener('click', function () { copyText(full, btn); });
+    foot.appendChild(btn);
+    if (p.relaxed) {
+      var f = el('span', 'tw-flag', 'Short fragment');
+      f.title = 'No break here could keep three words either side, so this post breaks at the last word that fits.';
+      foot.appendChild(f);
+    }
+    foot.appendChild(el('span', 'tw-count', n > limit ? (n + ' of ' + limit + ', over by ' + (n - limit)) : (n + ' of ' + limit)));
+    card.appendChild(foot);
+    li.appendChild(card);
+    list.appendChild(li);
+  });
+}
+
+function update() {
+  var th = Number(thEl.value) / 100;
+  var mLimit = Math.max(100, Number(limitEl.value) || 500);
+  $('tw-threshold-val').textContent = thEl.value + '%';
+  var Ab = analyse(tokenize(prepare(input.value, 'b')));
+  var Am = analyse(tokenize(prepare(input.value, 'm')));
+  var bsky = Ab.N ? splitFor(Ab, countBsky, BSKY_LIMIT, th) : [];
+  var masto = Am.N ? buildMasto(Am, mLimit, th) : [];
+  var words = Ab.W[Ab.W.length - 1];
+  $('tw-draft-meta').textContent = words + (words === 1 ? ' word' : ' words');
+  $('tw-bsky-meta').textContent = bsky.length ? bsky.length + (bsky.length === 1 ? ' post' : ' posts') : BSKY_LIMIT + ' per post';
+  $('tw-masto-meta').textContent = masto.length ? masto.length + (masto.length === 1 ? ' post' : ' posts') : mLimit + ' per post';
+  render($('tw-bsky-list'), bsky, BSKY_LIMIT, countBsky);
+  render($('tw-masto-list'), masto, mLimit, countMasto);
+}
+
+var timer;
+function schedule() { clearTimeout(timer); timer = setTimeout(update, 80); }
+input.addEventListener('input', schedule);
+limitEl.addEventListener('input', schedule);
+thEl.addEventListener('input', update);
+update();
+})();
+</script>
+</body>
+</html>
