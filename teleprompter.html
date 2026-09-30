@@ -26,6 +26,11 @@
   /* ---------- prompter ---------- */
   #stage { position:fixed; inset:0; background:#000; overflow:hidden; display:none; cursor:pointer; }
   #stage.on { display:block; }
+  /* Mirror the whole prompter screen (text, countdown, HUD) for a beam-splitter rig */
+  #stage.mirror-h { transform:scaleX(-1); }
+  #stage.mirror-v { transform:scaleY(-1); }
+  select { font:inherit; font-size:17px; padding:8px; background:#0b0b0b; color:var(--fg); border:1px solid #333; border-radius:8px; }
+  #mirrorBadge { color:var(--warn); font-size:14px; }
   #text { position:absolute; left:0; right:0; margin:0 auto; width:min(92vw, 1200px); padding:0 3vw; will-change:transform; font-weight:600; line-height:1.35; }
   #text p { margin:0 0 0.9em; }
   #marker { position:absolute; left:0.6vw; width:0; height:0; border-top:0.5em solid transparent; border-bottom:0.5em solid transparent; border-left:0.75em solid var(--accent); opacity:.85; pointer-events:none; }
@@ -49,6 +54,14 @@
   <div class="row">
     <label>Words per minute <input type="number" id="wpm" min="60" max="300" step="5" value="160"></label>
     <label>Text size <input type="range" id="size" min="32" max="140" value="72"><span id="sizeVal" class="meta">72px</span></label>
+    <label>Mirror
+      <select id="mirror">
+        <option value="off">Off</option>
+        <option value="h">Left–right</option>
+        <option value="v">Up–down</option>
+      </select>
+    </label>
+    <span id="mirrorBadge"></span>
   </div>
   <div class="row">
     <button id="go">Go</button>
@@ -57,6 +70,7 @@
   <div class="help">
     Scrolling starts 10 seconds after Go. Tap anywhere to pause; tap again to restart, again after 10 seconds. At the end, tap again for a new take from the top.
     Clicker: forward/back (Page Down/Up or arrows) starts from this screen, pauses and restarts while running, and starts a new take at the end · Up/Down arrows change speed by 10 wpm · Esc stops.
+    Mirror flips the whole prompter screen for a glass rig; it can only be changed here.
   </div>
 </div>
 
@@ -87,6 +101,18 @@
   $('wpm').value = store.get('wpm', 160);
   $('size').value = store.get('size', 72);
   $('sizeVal').textContent = $('size').value + 'px';
+
+  // ---------- mirror (setup screen only, deliberately no shortcut) ----------
+  const MIRRORS = { off: '', h: 'mirror-h', v: 'mirror-v' };
+  function applyMirror() {
+    const m = MIRRORS.hasOwnProperty($('mirror').value) ? $('mirror').value : 'off';
+    $('stage').classList.remove('mirror-h', 'mirror-v');
+    if (MIRRORS[m]) $('stage').classList.add(MIRRORS[m]);
+    $('mirrorBadge').textContent = m === 'off' ? '' : 'Prompter screen will be mirrored';
+  }
+  $('mirror').value = MIRRORS.hasOwnProperty(store.get('mirror', 'off')) ? store.get('mirror', 'off') : 'off';
+  $('mirror').addEventListener('change', () => { store.set('mirror', $('mirror').value); applyMirror(); });
+  applyMirror();
 
   const wordCount = t => (t.trim().match(/\S+/g) || []).length;
   function fmt(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
@@ -169,7 +195,7 @@
     if (S.state === 'idle') {
       // Clicker on the setup screen acts as Go. Page keys always; arrows only when not editing text.
       const a = document.activeElement;
-      const editing = a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT');
+      const editing = a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.tagName === 'SELECT');
       if (k === 'PageDown' || k === 'PageUp' || (!editing && (k === 'ArrowRight' || k === 'ArrowLeft'))) {
         e.preventDefault();
         if (a && a.blur) a.blur();
