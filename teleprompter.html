@@ -34,8 +34,7 @@
   .flash { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); padding:.15em .5em; border-radius:.3em; background:rgba(20,20,20,.92); border:2px solid var(--accent); color:#fff; font-weight:800; font-size:min(16vw, 16vh); font-variant-numeric:tabular-nums; pointer-events:none; opacity:0; transition:opacity .25s; z-index:10; white-space:nowrap; }
   #stage .flash { position:absolute; }
   .flash.show { opacity:1; transition:none; }
-  #keyInfo { margin-top:12px; font:13px/1.4 ui-monospace, Menlo, monospace; color:var(--warn); }
-  #hudKey { top:max(18px, env(safe-area-inset-top)); left:18px; font:13px ui-monospace, Menlo, monospace; color:#666; }
+  #keyInfo { margin-top:12px; font:12px/1.4 ui-monospace, Menlo, monospace; color:#555; }
   #text { position:absolute; left:0; right:0; margin:0 auto; width:min(92vw, 1200px); padding:0 3vw; will-change:transform; font-weight:600; line-height:1.35; }
   #text p { margin:0 0 0.9em; }
   #marker { position:absolute; left:0.6vw; width:0; height:0; border-top:0.5em solid transparent; border-bottom:0.5em solid transparent; border-left:0.75em solid var(--accent); opacity:.85; pointer-events:none; }
@@ -74,10 +73,10 @@
   </div>
   <div class="help">
     Scrolling starts 10 seconds after Go. Tap anywhere to pause; tap again to restart after 10 seconds. At the end, tap again for a new take from the top.
-    Remote: left slows down and right speeds up by 10 wpm, here and while running · the stop button starts from this screen, pauses and resumes (3-second countdown) while running, and starts a new take at the end · Esc returns here.
+    Remote: left/right change speed by 10 wpm, here and while running (in the script box they also move the cursor) · stop (Tab) starts from this screen, pauses and resumes with a 3-second countdown, and starts a new take at the end · Esc returns here.
     Mirror flips the whole prompter screen for a glass rig; it can only be changed here.
   </div>
-  <div id="keyInfo">Last keys received: none yet — press each remote button to see what it sends</div>
+  <div id="keyInfo">Last keys: none yet</div>
   <div class="flash" id="flashSetup"></div>
 </div>
 
@@ -92,7 +91,6 @@
     <button class="ctrl" id="faster" aria-label="Faster">+</button>
   </div>
   <div class="hud" id="hudInfo"></div>
-  <div class="hud" id="hudKey"></div>
   <div class="flash" id="flash"></div>
 </div>
 
@@ -165,7 +163,7 @@
   function showOverlay(big, sub) { $('overlay').classList.remove('hidden'); $('big').textContent = big; $('sub').textContent = sub; }
   function hideOverlay() { $('overlay').classList.add('hidden'); }
 
-  function startCountdown(subText, secs = COUNTDOWN) { S.state = 'countdown'; S.cdEnd = performance.now() + secs * 1000; S.cdSub = subText; }
+  function startCountdown(subText, secs = COUNTDOWN) { S.state = 'countdown'; S.cdEnd = performance.now() + secs * 1000; S.cdSub = subText; S.cdSecs = secs; }
 
   // ---------- main loop ----------
   function loop(now) {
@@ -174,7 +172,7 @@
     if (S.state === 'countdown') {
       const left = (S.cdEnd - now) / 1000;
       if (left <= 0) { S.state = 'running'; hideOverlay(); }
-      else showOverlay(Math.ceil(left), S.cdSub);
+      else showOverlay(Math.min(S.cdSecs || COUNTDOWN, Math.ceil(left)), S.cdSub);
     }
     if (S.state === 'running') {
       S.offset += pxPerSec() * dt;
@@ -220,51 +218,50 @@
   $('stopBtn').onclick = stop;
 
   // ---------- remote / keyboard ----------
-  const LEFT  = ['PageUp', 'ArrowLeft'];
-  const RIGHT = ['PageDown', 'ArrowRight'];
-  const STOP  = ['b', 'B', '.', 'F5', ' ', 'Enter', 'MediaPlayPause'];
-  const DEBOUNCE_MS = 250; // some remotes send two keys per press; act on the first only
+  // Remote: ArrowLeft / ArrowRight change speed, Tab is the stop button.
+  const LEFT  = ['ArrowLeft', 'PageUp'];
+  const RIGHT = ['ArrowRight', 'PageDown'];
 
-  // Key readout so we can see exactly what the remote sends
+  // Small key readout on the setup screen, in case a future remote sends something else
   const recent = [];
-  let lastKeyT = 0, lastActT = -Infinity;
-  function showKey(e, acted) {
-    const now = performance.now();
-    const gap = lastKeyT ? Math.round(now - lastKeyT) : 0;
-    lastKeyT = now;
-    recent.unshift(`${e.key === ' ' ? 'Space' : e.key} (${e.code || '?'})${gap && gap < 2000 ? ' +' + gap + 'ms' : ''}${acted ? '' : ' ignored'}`);
+  function showKey(e) {
+    recent.unshift(e.key === ' ' ? 'Space' : e.key);
     recent.length = Math.min(recent.length, 4);
-    $('keyInfo').textContent = 'Last keys received: ' + recent.join('  ·  ');
-    $('hudKey').textContent = recent[0];
+    $('keyInfo').textContent = 'Last keys: ' + recent.join(' · ');
   }
+
+  const isTextField = el => el && (el.tagName === 'TEXTAREA' ||
+    (el.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(el.type)));
 
   document.addEventListener('keydown', e => {
     const k = e.key;
     const a = document.activeElement;
-    const editing = S.state === 'idle' && a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.tagName === 'SELECT');
+    showKey(e);
 
-    // Work out what this key means here; null = leave it alone (e.g. typing in the script box)
-    let action = null;
-    if (LEFT.includes(k))  action = (editing && k === 'ArrowLeft')  ? null : 'slower';
-    else if (RIGHT.includes(k)) action = (editing && k === 'ArrowRight') ? null : 'faster';
-    else if (k === 'ArrowUp')   action = editing ? null : 'faster';
-    else if (k === 'ArrowDown') action = editing ? null : 'slower';
-    else if (STOP.includes(k))  action = (editing && k !== 'F5' && k !== 'MediaPlayPause') ? null : 'stop';
-    else if (k === 'Escape' && S.state !== 'idle') action = 'exit';
-
-    if (!action) { showKey(e, false); return; }
-    e.preventDefault();
-    const now = performance.now();
-    if (e.repeat || now - lastActT < DEBOUNCE_MS) { showKey(e, false); return; }
-    lastActT = now;
-    showKey(e, true);
-
-    if (action === 'slower') nudge(-WPM_STEP);
-    else if (action === 'faster') nudge(WPM_STEP);
-    else if (action === 'exit') stop();
-    else if (action === 'stop') {
+    // Tab is the remote's stop button: always ours, so it can never move focus around the page
+    if (k === 'Tab') {
+      e.preventDefault();
+      if (e.repeat) return;
       if (S.state === 'idle') { if (a && a.blur) a.blur(); go(); }
       else toggle(true);
+      return;
+    }
+
+    if (LEFT.includes(k) || RIGHT.includes(k)) {
+      // In a text box the arrow still moves the cursor as normal (and also changes speed).
+      // Elsewhere (slider, mirror menu, prompter screen) we stop the browser's own handling.
+      if (!(S.state === 'idle' && isTextField(a))) e.preventDefault();
+      if (!e.repeat) nudge(LEFT.includes(k) ? -WPM_STEP : WPM_STEP);
+      return;
+    }
+
+    if (S.state === 'idle') return; // everything else on the setup screen behaves normally
+
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      e.preventDefault();
+      if (!e.repeat) nudge(k === 'ArrowUp' ? WPM_STEP : -WPM_STEP);
+    } else if (k === 'Escape') {
+      e.preventDefault(); stop();
     }
   });
 
