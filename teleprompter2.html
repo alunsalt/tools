@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Garden Prompter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<style>
+:root{--bg:#000;--fg:#f4f1ea;--muted:#8a8f98;--accent:#f2b84b;--panel:#15181d;--line:#2a2f37}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body.lock{overflow:hidden;position:fixed;width:100%}
+
+/* ---------- editor ---------- */
+#editor{max-width:760px;margin:0 auto;padding:24px 20px 70px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;font-size:15px;line-height:1.4}
+textarea{width:100%;min-height:42vh;background:#0c0e11;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;resize:vertical}
+textarea:focus,select:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.meta{color:var(--muted);font-size:13px;margin:6px 2px 16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-bottom:18px}
+.grid label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.grid label.chk{flex-direction:row;align-items:center;gap:10px;color:var(--fg);font-size:15px}
+select,input[type=number]{background:#0c0e11;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+button{font:inherit;font-size:17px;padding:13px 20px;border-radius:10px;border:1px solid var(--line);background:#1b1f26;color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:600}
+details{margin-top:26px;color:var(--muted);font-size:14px;line-height:1.55}
+details summary{cursor:pointer;color:var(--fg);font-size:15px}
+details li{margin:6px 0}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+
+/* ---------- prompter ---------- */
+#prompter{position:fixed;inset:0;background:#000;display:none;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#prompter.on{display:block}
+#col{position:absolute;top:0;will-change:transform;transition:transform .45s cubic-bezier(.2,.7,.2,1);line-height:1.25;font-weight:600;letter-spacing:.005em}
+.chunk{margin:0 0 .45em;opacity:.15;transition:opacity .3s}
+.chunk.para{margin-top:.95em}
+.w.done{opacity:.4}
+.w.next{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.06em;text-underline-offset:.14em}
+#bandbox{position:absolute;border:2px dashed var(--accent);border-radius:10px;display:none;pointer-events:none;z-index:1}
+#bandline{position:absolute;left:0;right:0;height:0;border-top:1px solid rgba(242,184,75,.55);display:none;pointer-events:none;z-index:1}
+#bandlabel{position:absolute;left:12px;transform:translateY(-110%);color:var(--accent);font-size:13px;display:none;pointer-events:none;z-index:1}
+#prompter.calib #bandbox,#prompter.calib #bandline,#prompter.calib #bandlabel{display:block}
+.zone{position:absolute;top:0;bottom:0;z-index:2;touch-action:none}
+#zBack{left:0;width:35%}#zMid{left:35%;width:30%}#zFwd{left:65%;width:35%}
+.zone.flash{background:rgba(255,255,255,.05)}
+.ui-btn{position:absolute;top:max(10px,env(safe-area-inset-top));width:48px;height:48px;border-radius:24px;border:1px solid #333;background:rgba(20,22,26,.7);color:#ccc;font-size:21px;padding:0;z-index:5;display:flex;align-items:center;justify-content:center}
+#btnExit{left:max(12px,env(safe-area-inset-left))}
+#btnAdjust{left:calc(max(12px,env(safe-area-inset-left)) + 58px)}
+#pill{position:absolute;top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:5;padding:9px 15px;border-radius:22px;background:rgba(20,22,26,.7);color:#bbb;font-size:15px;border:1px solid #333;pointer-events:none}
+#pill.warn{color:#1a1200;background:var(--accent);border-color:var(--accent)}
+#panel{position:absolute;left:0;right:0;bottom:0;z-index:6;background:rgba(18,20,24,.97);border-top:1px solid #333;padding:14px 20px calc(14px + env(safe-area-inset-bottom));display:none}
+#panel.on{display:block}
+#panel .rows{display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}
+#panel label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+#panel input[type=range]{width:100%;height:32px;accent-color:var(--accent)}
+#panel .foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:12px;flex-wrap:wrap}
+#panel .foot label{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:15px}
+#wpmRow{display:none}
+</style>
+</head>
+<body>
+
+<div id="editor">
+  <h1>Garden Prompter</h1>
+  <p class="sub">A memory aid, not a cold-read scroller. It highlights where you are, waits when you stop, and follows when you carry on.</p>
+
+  <textarea id="script" spellcheck="false" placeholder="Paste your script here. Each new line starts a new paragraph."></textarea>
+  <div class="meta"><span id="count"></span></div>
+
+  <div class="grid">
+    <label>Scroll mode
+      <select id="mode">
+        <option value="follow">Follow my voice</option>
+        <option value="steady">Steady scroll</option>
+        <option value="manual">Manual taps only</option>
+      </select>
+    </label>
+    <label id="wpmWrap">Steady pace (words per minute)
+      <input id="wpm" type="number" min="60" max="260" step="5">
+    </label>
+    <label>Speech language
+      <select id="lang">
+        <option value="en-GB">English (UK)</option>
+        <option value="en-US">English (US)</option>
+        <option value="en-AU">English (Australia)</option>
+        <option value="en-IE">English (Ireland)</option>
+      </select>
+    </label>
+    <label>Text alignment
+      <select id="align">
+        <option value="center">Centred</option>
+        <option value="left">Left</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="mirror"> Mirror text</label>
+  </div>
+
+  <div class="btns">
+    <button id="start" class="primary">Start prompter</button>
+    <button id="calib">Set up position</button>
+  </div>
+
+  <details>
+    <summary>Notes for the iPad</summary>
+    <ul>
+      <li><b>Position first.</b> “Set up position” shows a dashed box and a reading line, with no microphone. Move the reading line and column until the first line sits just above or beside the lens.</li>
+      <li><b>Taps.</b> Left third goes back a phrase, right third goes forward a phrase, middle pauses or resumes. If listening has dropped, tapping also restarts it.</li>
+      <li><b>Voice following</b> uses Safari's built-in speech recognition. Dictation must be switched on (Settings → General → Keyboard → Enable Dictation), and you need to allow the microphone when asked. It sends audio to Apple, so it needs a connection.</li>
+      <li><b>Microphone.</b> A lav or USB mic plugged into the iPad is picked up automatically. Connect it before pressing Start.</li>
+      <li><b>When it can't hear you</b> the text stays where it is and the pill turns amber. It never runs on ahead of you.</li>
+      <li><b>Without Safari's toolbars:</b> Share → Add to Home Screen. If speech won't start from the home-screen icon, use it from a normal Safari tab instead.</li>
+      <li><b>Keyboard</b> (for testing on a computer): arrows move, space pauses, Esc exits.</li>
+    </ul>
+  </details>
+</div>
+
+<div id="prompter">
+  <div id="col"></div>
+  <div id="bandbox"></div>
+  <div id="bandline"></div>
+  <div id="bandlabel">reading line</div>
+  <div class="zone" id="zBack"></div>
+  <div class="zone" id="zMid"></div>
+  <div class="zone" id="zFwd"></div>
+  <button class="ui-btn" id="btnExit" aria-label="Exit">&#10005;</button>
+  <button class="ui-btn" id="btnAdjust" aria-label="Adjust">&#9776;</button>
+  <div id="pill">…</div>
+  <div id="panel">
+    <div class="rows">
+      <label>Text size <input type="range" id="pSize" min="4" max="18" step="0.5"></label>
+      <label>Reading line height <input type="range" id="pBand" min="3" max="70" step="1"></label>
+      <label>Column position (left / right) <input type="range" id="pColX" min="-40" max="40" step="1"></label>
+      <label>Column width <input type="range" id="pColW" min="30" max="95" step="1"></label>
+      <label id="wpmRow">Steady pace <input type="range" id="pWpm" min="60" max="260" step="5"></label>
+    </div>
+    <div class="foot">
+      <label><input type="checkbox" id="pMirror"> Mirror text</label>
+      <button id="pDone" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ==== CORE START ====
+var MAXW = 7;
+var STOP = {};
+('a an the and or but of to in on at is it as be by for with that this are was were i you he she we they').split(' ').forEach(function(w){ STOP[w] = 1; });
+
+function norm(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+}
+
+function lev(a, b){
+  var m = a.length, n = b.length, prev = [], cur = [], i, j;
+  for (j = 0; j <= n; j++) prev[j] = j;
+  for (i = 1; i <= m; i++){
+    cur[0] = i;
+    for (j = 1; j <= n; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    }
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+
+// Loose matching so mangled species names still count.
+function wordsMatch(a, b){
+  if (a === b) return true;
+  var la = a.length, lb = b.length;
+  if (la < 4 || lb < 4) return false;
+  var m = Math.min(la, lb), p = 0;
+  while (p < m && a[p] === b[p]) p++;
+  if (p >= 4 && p >= m * 0.6) return true;
+  if (la >= 5 && lb >= 5 && Math.abs(la - lb) <= 2) return lev(a, b) <= (Math.max(la, lb) >= 8 ? 2 : 1);
+  return false;
+}
+
+function weight(n){ return (n.length >= 4 && !STOP[n]) ? 1 : 0.5; }
+
+function parseScript(text){
+  var words = [], chunks = [];
+  var paras = String(text).replace(/\r/g,'').split(/\n+/).map(function(s){ return s.trim(); }).filter(Boolean);
+  var segRe = /[^\-\u2013\u2014\/]+[\-\u2013\u2014\/]*|[\-\u2013\u2014\/]+/g;
+  paras.forEach(function(p){
+    var pStart = words.length, carry = '';
+    p.split(/\s+/).forEach(function(tok){
+      var segs = tok.match(segRe) || [tok];
+      segs.forEach(function(seg, si){
+        var n = norm(seg);
+        if (!n){
+          if (words.length > pStart) words[words.length-1].t += (si === 0 ? ' ' : '') + seg;
+          else carry += seg + ' ';
+          return;
+        }
+        words.push({ t: carry + seg, n: n, glue: si > 0, chunk: 0 });
+        carry = '';
+      });
+    });
+    if (words.length === pStart) return;
+    var cs = pStart, first = true, i, k;
+    for (i = pStart; i < words.length; i++){
+      var cnt = i - cs + 1, last = (i === words.length - 1);
+      var punct = /[.,;:!?)\u2014\u2013\u201d"]$/.test(words[i].t.trim());
+      if (last || cnt >= MAXW || (punct && cnt >= 3)){
+        if (last && cnt < 3 && !first){
+          var pc = chunks[chunks.length-1];
+          pc.end = i;
+          for (k = cs; k <= i; k++) words[k].chunk = chunks.length - 1;
+        } else {
+          chunks.push({ start: cs, end: i, para: first && chunks.length > 0 });
+          for (k = cs; k <= i; k++) words[k].chunk = chunks.length - 1;
+          first = false;
+        }
+        cs = i + 1;
+      }
+    }
+  });
+  return { words: words, chunks: chunks };
+}
+
+// rec: normalised recognised words. Returns {j} = index of the script word just spoken, or null.
+// Only searches forward from pos, so it can never jump backwards.
+function findMatch(rec, words, pos, win){
+  var best = null, drop, i, j;
+  for (drop = 0; drop <= 1; drop++){
+    var tail = rec.slice(Math.max(0, rec.length - drop - 6), rec.length - drop);
+    var L = tail.length;
+    if (!L) continue;
+    var need = L >= 3 ? 2.0 : (L === 2 ? 1.5 : 1.0);
+    var maxDist = need < 2 ? 6 : win;
+    var hi = Math.min(words.length - 1, pos + win);
+    for (j = pos; j <= hi; j++){
+      if (j - pos > maxDist) break;
+      if (!wordsMatch(tail[L-1], words[j].n)) continue;
+      var s = weight(words[j].n);
+      for (i = 1; i < L; i++){
+        var sj = j - i;
+        if (sj < 0) break;
+        if (wordsMatch(tail[L-1-i], words[sj].n)) s += weight(words[sj].n);
+      }
+      if (s < need) continue;
+      var score = s - 0.02 * (j - pos) - drop * 0.15;
+      if (!best || score > best.score) best = { j: j, score: score };
+    }
+  }
+  return best;
+}
+// ==== CORE END ====
+
+var $ = function(id){ return document.getElementById(id); };
+var KEY = 'gardenPrompter.v1';
+var DEF = { script:'', size:9, bandY:20, colX:0, colW:62, mirror:false, align:'center', mode:'follow', wpm:140, lang:'en-GB' };
+var S = {};
+var SAMPLE = 'Use the sliders to line the text up just above or beside the lens. This sample shows how much text you will see at once. The underlined word is where the prompter thinks you are, and the dimmed words are the ones already said. Tap the right-hand side to move forward.';
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function loadS(){
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e){}
+  for (var k in DEF) S[k] = (saved[k] !== undefined) ? saved[k] : DEF[k];
+}
+function saveS(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+/* ---------- state ---------- */
+var words = [], chunks = [], wordEls = [], chunkEls = [];
+var pos = 0, fpos = 0;
+var prompterOpen = false, calibrating = false, paused = false;
+var rec = null, wantRec = false, recActive = false, startPending = false, restartTimer = null, restarts = [];
+var fatal = '', lastHeard = 0, lastAdvance = 0, steadyTimer = null, statusTimer = null, wl = null;
+var colEl = $('col'), pEl = $('prompter');
+var fontPx = 60, flashTimers = {};
+
+/* ---------- editor ---------- */
+function syncEditor(){
+  $('script').value = S.script;
+  $('mode').value = S.mode; $('wpm').value = S.wpm; $('lang').value = S.lang;
+  $('align').value = S.align; $('mirror').checked = !!S.mirror;
+  $('wpmWrap').style.display = S.mode === 'steady' ? '' : 'none';
+  updateCount();
+}
+function updateCount(){
+  var n = parseScript($('script').value).words.length;
+  var secs = Math.round(n / 150 * 60);
+  $('count').textContent = n ? (n + ' words, roughly ' + Math.floor(secs/60) + ':' + ('0' + (secs%60)).slice(-2) + ' at a natural pace') : 'No script yet';
+}
+$('script').addEventListener('input', function(){ S.script = this.value; saveS(); updateCount(); });
+$('mode').addEventListener('change', function(){ S.mode = this.value; saveS(); $('wpmWrap').style.display = S.mode === 'steady' ? '' : 'none'; });
+$('wpm').addEventListener('change', function(){ S.wpm = Math.max(60, Math.min(260, +this.value || 140)); this.value = S.wpm; saveS(); });
+$('lang').addEventListener('change', function(){ S.lang = this.value; saveS(); });
+$('align').addEventListener('change', function(){ S.align = this.value; saveS(); });
+$('mirror').addEventListener('change', function(){ S.mirror = this.checked; saveS(); });
+
+/* ---------- prompter building and layout ---------- */
+function buildPrompter(){
+  colEl.innerHTML = ''; wordEls = []; chunkEls = [];
+  chunks.forEach(function(c){
+    var d = document.createElement('div');
+    d.className = 'chunk' + (c.para ? ' para' : '');
+    for (var i = c.start; i <= c.end; i++){
+      var w = words[i];
+      if (i > c.start && !w.glue) d.appendChild(document.createTextNode(' '));
+      var s = document.createElement('span');
+      s.className = 'w'; s.textContent = w.t;
+      d.appendChild(s); wordEls[i] = s;
+    }
+    colEl.appendChild(d); chunkEls.push(d);
+  });
+}
+
+function opacityFor(d){
+  if (d === 0) return 1;
+  if (d === 1) return 0.88;
+  if (d === 2) return 0.7;
+  if (d === 3) return 0.4;
+  if (d > 3) return 0.16;
+  if (d === -1) return 0.35;
+  if (d === -2) return 0.15;
+  return 0.06;
+}
+
+function curChunk(){
+  if (!words.length) return 0;
+  return pos >= words.length ? chunks.length - 1 : words[pos].chunk;
+}
+
+function layout(){
+  var W = window.innerWidth, H = window.innerHeight;
+  fontPx = S.size * Math.min(W, H) / 100;
+  var colW = W * S.colW / 100;
+  var left = W / 2 + W * S.colX / 100 - colW / 2;
+  colEl.style.fontSize = fontPx + 'px';
+  colEl.style.width = colW + 'px';
+  colEl.style.left = left + 'px';
+  colEl.style.paddingBottom = H + 'px';
+  colEl.style.textAlign = S.align;
+  var bandPx = H * S.bandY / 100;
+  var bb = $('bandbox');
+  bb.style.left = (left - 6) + 'px'; bb.style.width = (colW + 12) + 'px';
+  bb.style.top = bandPx + 'px'; bb.style.height = (fontPx * 1.25 * 3) + 'px';
+  $('bandline').style.top = bandPx + 'px';
+  $('bandlabel').style.top = bandPx + 'px';
+  render();
+}
+
+function place(c){
+  if (!chunkEls.length) return;
+  var H = window.innerHeight, bandPx = H * S.bandY / 100;
+  var ty = bandPx - chunkEls[c].offsetTop;
+  colEl.style.transform = 'translate3d(0,' + ty + 'px,0) scaleX(' + (S.mirror ? -1 : 1) + ')';
+}
+
+function render(){
+  if (!prompterOpen) return;
+  var c = curChunk();
+  for (var ci = 0; ci < chunkEls.length; ci++) chunkEls[ci].style.opacity = opacityFor(ci - c);
+  for (var i = 0; i < wordEls.length; i++){
+    wordEls[i].classList.toggle('done', i < pos && words[i].chunk === c);
+    wordEls[i].classList.toggle('next', i === pos);
+  }
+  place(c);
+  updateStatus();
+}
+
+function updateStatus(){
+  if (!prompterOpen) return;
+  var txt = '', warn = false, pct = words.length ? Math.round(Math.min(pos, words.length) / words.length * 100) : 0;
+  if (calibrating) txt = 'Position set-up';
+  else if (paused) txt = 'Paused · ' + pct + '%';
+  else if (pos >= words.length) txt = 'End of script';
+  else if (S.mode === 'follow'){
+    if (fatal){ txt = fatal; warn = true; }
+    else if (!recActive){ txt = 'Reconnecting…'; warn = true; }
+    else if (Date.now() - lastHeard > 5000){ txt = 'Not hearing you'; warn = true; }
+    else txt = 'Listening · ' + pct + '%';
+  }
+  else if (S.mode === 'steady') txt = 'Steady ' + S.wpm + ' wpm · ' + pct + '%';
+  else txt = 'Manual · ' + pct + '%';
+  var pill = $('pill');
+  pill.textContent = txt;
+  pill.classList.toggle('warn', warn);
+}
+
+function setPos(p){
+  pos = Math.max(0, Math.min(words.length, p));
+  fpos = pos; lastAdvance = Date.now();
+  render();
+}
+
+function nudge(dir){
+  if (!chunks.length) return;
+  var c = curChunk();
+  if (dir > 0){
+    if (c >= chunks.length - 1) setPos(words.length);
+    else setPos(chunks[c + 1].start);
+  } else {
+    if (pos > chunks[c].start) setPos(chunks[c].start);
+    else setPos(chunks[Math.max(0, c - 1)].start);
+  }
+}
+
+/* ---------- speech following ---------- */
+function startRec(){
+  if (!SR){ fatal = 'No speech support here. Use Steady or Manual.'; wantRec = false; updateStatus(); return; }
+  if (startPending) return;
+  killRec();
+  var r = new SR();
+  r.continuous = true; r.interimResults = true; r.lang = S.lang; r.maxAlternatives = 1;
+  r.onstart = function(){ recActive = true; startPending = false; };
+  r.onend = function(){
+    recActive = false; startPending = false;
+    if (wantRec && r === rec) scheduleRestart();
+    updateStatus();
+  };
+  r.onerror = function(e){
+    startPending = false;
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      fatal = 'Mic or speech blocked. Tap to retry.'; wantRec = false;
+    } else if (e.error === 'audio-capture'){
+      fatal = 'No microphone found'; wantRec = false;
+    }
+    updateStatus();
+  };
+  r.onresult = function(e){
+    lastHeard = Date.now(); restarts = [];
+    if (paused || S.mode !== 'follow' || calibrating) return;
+    var txt = '';
+    for (var i = 0; i < e.results.length; i++) txt += ' ' + e.results[i][0].transcript;
+    var rw = txt.split(/\s+/).map(norm).filter(Boolean);
+    var win = (Date.now() - lastAdvance > 8000) ? 80 : 30;
+    var m = findMatch(rw, words, pos, win);
+    if (m){
+      pos = Math.min(words.length, m.j + 1); fpos = pos; lastAdvance = Date.now();
+      render();
+    }
+  };
+  rec = r; startPending = true;
+  try { r.start(); } catch(e){ startPending = false; }
+}
+
+function killRec(){
+  if (!rec) return;
+  var r = rec; rec = null;
+  r.onstart = r.onend = r.onerror = r.onresult = null;
+  try { r.abort(); } catch(e){}
+  recActive = false; startPending = false;
+}
+
+function scheduleRestart(){
+  clearTimeout(restartTimer);
+  var now = Date.now();
+  restarts = restarts.filter(function(t){ return now - t < 10000; });
+  restarts.push(now);
+  var delay = restarts.length > 4 ? 1500 : 200;
+  restartTimer = setTimeout(function(){ if (wantRec && prompterOpen) startRec(); }, delay);
+}
+
+// A tap is a user gesture, so it can revive recognition that the browser has refused to restart.
+function kick(){
+  if (S.mode !== 'follow' || calibrating || !SR) return;
+  if (!recActive && !startPending){ fatal = ''; wantRec = true; startRec(); }
+}
+
+/* ---------- steady scroll ---------- */
+function steadyTick(){
+  if (paused || calibrating || S.mode !== 'steady' || !prompterOpen) return;
+  if (pos >= words.length) return;
+  fpos += S.wpm / 600;
+  var np = Math.min(words.length, Math.floor(fpos));
+  if (np !== pos){ pos = np; render(); }
+}
+
+/* ---------- wake lock ---------- */
+function lockScreen(){
+  try {
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(function(l){ wl = l; }, function(){});
+  } catch(e){}
+}
+function unlockScreen(){ try { if (wl) wl.release(); } catch(e){} wl = null; }
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && prompterOpen) lockScreen();
+});
+
+/* ---------- open / close ---------- */
+function openPrompter(calib){
+  var src = S.script;
+  if (calib && !src.trim()) src = SAMPLE;
+  var parsed = parseScript(src);
+  if (!parsed.words.length){ alert('Add some script first.'); return; }
+  words = parsed.words; chunks = parsed.chunks;
+  calibrating = !!calib; paused = false; fatal = '';
+  pos = 0; fpos = 0; lastHeard = Date.now(); lastAdvance = Date.now(); restarts = [];
+  prompterOpen = true;
+  document.body.classList.add('lock');
+  pEl.classList.add('on');
+  pEl.classList.toggle('calib', calibrating);
+  colEl.style.transition = 'none';
+  buildPrompter();
+  syncPanel();
+  $('panel').classList.toggle('on', calibrating);
+  layout();
+  requestAnimationFrame(function(){ colEl.style.transition = ''; });
+  if (!calibrating){
+    if (S.mode === 'follow'){
+      if (SR){ wantRec = true; startRec(); }
+      else { fatal = 'No speech support here. Use Steady or Manual.'; }
+    }
+    clearInterval(steadyTimer); steadyTimer = setInterval(steadyTick, 100);
+  }
+  clearInterval(statusTimer); statusTimer = setInterval(updateStatus, 400);
+  lockScreen();
+  try {
+    var el = document.documentElement;
+    var rf = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (rf){ var pr = rf.call(el); if (pr && pr.catch) pr.catch(function(){}); }
+  } catch(e){}
+  updateStatus();
+}
+
+function closePrompter(){
+  prompterOpen = false; wantRec = false;
+  clearTimeout(restartTimer); clearInterval(steadyTimer); clearInterval(statusTimer);
+  killRec(); unlockScreen();
+  pEl.classList.remove('on'); $('panel').classList.remove('on');
+  document.body.classList.remove('lock');
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement){
+      var ef = document.exitFullscreen || document.webkitExitFullscreen;
+      if (ef){ var pr = ef.call(document); if (pr && pr.catch) pr.catch(function(){}); }
+    }
+  } catch(e){}
+  syncEditor();
+}
+
+/* ---------- panel ---------- */
+function syncPanel(){
+  $('pSize').value = S.size; $('pBand').value = S.bandY; $('pColX').value = S.colX;
+  $('pColW').value = S.colW; $('pMirror').checked = !!S.mirror; $('pWpm').value = S.wpm;
+  $('wpmRow').style.display = (S.mode === 'steady') ? '' : 'none';
+}
+function bindSlider(id, key){
+  $(id).addEventListener('input', function(){ S[key] = +this.value; saveS(); layout(); });
+}
+bindSlider('pSize','size'); bindSlider('pBand','bandY'); bindSlider('pColX','colX'); bindSlider('pColW','colW');
+$('pWpm').addEventListener('input', function(){ S.wpm = +this.value; saveS(); updateStatus(); });
+$('pMirror').addEventListener('change', function(){ S.mirror = this.checked; saveS(); layout(); });
+$('pDone').addEventListener('click', function(){
+  if (calibrating) closePrompter();
+  else { $('panel').classList.remove('on'); pEl.classList.remove('calib'); layout(); }
+});
+$('btnAdjust').addEventListener('click', function(){
+  var on = !$('panel').classList.contains('on');
+  $('panel').classList.toggle('on', on);
+  pEl.classList.toggle('calib', on || calibrating);
+  syncPanel(); layout();
+});
+$('btnExit').addEventListener('click', closePrompter);
+
+/* ---------- tap zones and keys ---------- */
+function flash(id){
+  var z = $(id); z.classList.add('flash');
+  clearTimeout(flashTimers[id]);
+  flashTimers[id] = setTimeout(function(){ z.classList.remove('flash'); }, 140);
+}
+function togglePause(){
+  if (calibrating) return;
+  paused = !paused;
+  if (!paused) kick();
+  updateStatus();
+}
+function bindZone(id, fn){
+  $(id).addEventListener('pointerdown', function(e){ e.preventDefault(); flash(id); kick(); fn(); });
+}
+bindZone('zBack', function(){ if (!calibrating) nudge(-1); });
+bindZone('zFwd', function(){ if (!calibrating) nudge(1); });
+bindZone('zMid', togglePause);
+
+document.addEventListener('keydown', function(e){
+  if (!prompterOpen) return;
+  if (e.key === 'Escape') closePrompter();
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { nudge(1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { nudge(-1); e.preventDefault(); }
+  else if (e.key === ' ') { togglePause(); e.preventDefault(); }
+});
+window.addEventListener('resize', function(){ if (prompterOpen) layout(); });
+
+$('start').addEventListener('click', function(){ openPrompter(false); });
+$('calib').addEventListener('click', function(){ openPrompter(true); });
+
+loadS();
+syncEditor();
+})();
+</script>
+</body>
+</html>
