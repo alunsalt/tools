@@ -1,0 +1,554 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Cover Seam Trials</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@700&family=Poppins:wght@400;500;600&display=swap">
+<style>
+/* Layout: a working bench. Controls on top, then one band per colour family (its ranges, then
+   four sample weeks), then the seam reference kept from the first round. */
+:root {
+    --cst-paper: #f6f7f3;
+    --cst-panel: #ffffff;
+    --cst-ink: #1b231e;
+    --cst-muted: #5a6560;
+    --cst-rule: #dfe3dc;
+    --cst-accent: #3a6b35;
+    --cst-new: #8a3a5c;
+    --cst-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --cst-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --cst-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --cst-cover-sans: "Poppins", "DM Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --cst-paper: #121714; --cst-panel: #1a211d; --cst-ink: #e6ebe5; --cst-muted: #a3aea7;
+        --cst-rule: #2e3832; --cst-accent: #8cc283; --cst-new: #e7a3c2; color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --cst-paper: #121714; --cst-panel: #1a211d; --cst-ink: #e6ebe5; --cst-muted: #a3aea7;
+    --cst-rule: #2e3832; --cst-accent: #8cc283; --cst-new: #e7a3c2; color-scheme: dark;
+}
+
+body {
+    background: var(--cst-paper);
+    color: var(--cst-ink);
+    font-family: var(--cst-body);
+    font-size: 15px;
+    line-height: 1.5;
+}
+.cst-wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 56px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+}
+.cst-head h1 {
+    font-family: var(--cst-display);
+    font-weight: 700;
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.1;
+    margin: 0 0 8px;
+    text-wrap: balance;
+}
+.cst-head p { margin: 0; max-width: 70ch; color: var(--cst-muted); }
+.cst-head p + p { margin-top: 8px; }
+.cst-label {
+    font-family: var(--cst-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cst-muted);
+}
+
+/* Controls */
+.cst-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    align-items: flex-end;
+    padding: 16px;
+    background: var(--cst-panel);
+    border: 1px solid var(--cst-rule);
+    border-radius: 6px;
+}
+.cst-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cst-colour { display: flex; gap: 8px; align-items: center; }
+.cst-colour input[type="color"] { width: 40px; height: 34px; padding: 0; border: 1px solid var(--cst-rule); border-radius: 4px; background: none; }
+.cst-colour input[type="text"] {
+    width: 9ch; padding: 7px 8px; font-family: var(--cst-mono); font-size: 13px;
+    border: 1px solid var(--cst-rule); border-radius: 4px; background: var(--cst-paper); color: var(--cst-ink);
+}
+.cst-btn {
+    padding: 8px 14px; border-radius: 4px; border: 1px solid var(--cst-accent);
+    background: transparent; color: var(--cst-accent); font: 500 14px var(--cst-body); cursor: pointer;
+}
+.cst-btn:hover { background: var(--cst-accent); color: var(--cst-paper); }
+.cst-btn:focus-visible { outline: 2px solid var(--cst-accent); outline-offset: 2px; }
+.cst-controls-note { flex: 1 1 280px; margin: 0; color: var(--cst-muted); font-size: 14px; min-width: 0; }
+
+/* Family bands */
+.cst-family { display: flex; flex-direction: column; gap: 14px; padding-top: 22px; border-top: 1px solid var(--cst-rule); }
+.cst-family-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.cst-family-head h2 { font-family: var(--cst-display); font-weight: 500; font-size: 24px; margin: 0; }
+.cst-pigment { font-family: var(--cst-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cst-muted); }
+.cst-badge { font-family: var(--cst-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cst-new); border: 1px solid currentColor; border-radius: 3px; padding: 1px 6px; }
+.cst-family > p { margin: 0; max-width: 72ch; color: var(--cst-muted); }
+
+.cst-ranges { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; align-items: center; max-width: 640px; }
+.cst-strip { display: flex; height: 22px; border-radius: 3px; overflow: hidden; border: 1px solid var(--cst-rule); }
+.cst-strip i { flex: 1 1 0; }
+
+.cst-weeks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 16px; }
+.cst-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px; background: var(--cst-panel); border: 1px solid var(--cst-rule); border-radius: 6px; }
+.cst-card-title { margin: 0; font-size: 13px; font-weight: 700; }
+.cst-swatches { display: flex; flex-direction: column; gap: 3px; font-family: var(--cst-mono); font-size: 11px; color: var(--cst-muted); }
+.cst-swatch { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.cst-swatch i { width: 12px; height: 12px; border-radius: 2px; border: 1px solid var(--cst-rule); display: inline-block; flex: none; }
+
+.cst-section { display: flex; flex-direction: column; gap: 14px; padding-top: 22px; border-top: 1px solid var(--cst-rule); }
+.cst-section h2 { font-family: var(--cst-display); font-weight: 500; font-size: 22px; margin: 0; }
+.cst-section > p { margin: 0; max-width: 72ch; color: var(--cst-muted); }
+.cst-row4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 16px; }
+
+/* ---------- the mock cover (fixed colours: it is a picture of the real thing) ---------- */
+.mk { border-radius: 3px; overflow: hidden; color: #fff; font-family: var(--cst-cover-sans); }
+.mk-band { position: relative; isolation: isolate; overflow: hidden; }
+.mk-band > .mk-content { position: relative; z-index: 1; }
+.mk-verb { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.mk-block { position: absolute; width: 150%; left: -25%; }
+.mk-edge { position: absolute; width: 150%; left: -25%; }
+
+.mk-mast { height: 128px; }
+.mk-mast .mk-content { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; }
+.mk-toprow { display: flex; align-items: center; gap: 10px; }
+.mk-menu {
+    width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center;
+    border: 1.5px solid #fff; border-radius: 3px; background: var(--mk-accent, #8f4a32);
+}
+.mk-menu span, .mk-menu span::before, .mk-menu span::after { display: block; width: 15px; height: 2px; background: #fff; position: relative; }
+.mk-menu span::before, .mk-menu span::after { content: ""; position: absolute; left: 0; }
+.mk-menu span::before { top: -5px; } .mk-menu span::after { top: 5px; }
+.mk-word { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 20px; letter-spacing: -0.01em; line-height: 1; white-space: nowrap; }
+.mk-search { width: 34px; height: 34px; flex: 0 0 auto; border: 1.5px solid #fff; border-radius: 3px; display: grid; place-items: center; }
+.mk-search::before { content: ""; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; transform: translate(-2px, -2px); }
+.mk-strap { margin-top: auto; font-size: 10.5px; letter-spacing: 0.03em; opacity: 0.92; }
+
+.mk-photo { height: 140px; position: relative; }
+.mk-photo canvas { display: block; width: 100%; height: 100%; }
+
+.mk-ticker { box-sizing: border-box; padding: 9px 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.mk-stack { font-family: var(--cst-mono); font-size: 9.5px; line-height: 1.25; letter-spacing: 0.08em; text-transform: uppercase; }
+.mk-stack.is-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.mk-stack b { display: block; font-weight: 700; }
+.mk-stack .mk-count { display: block; opacity: 0.85; letter-spacing: 0.04em; }
+.mk-pause { display: block; width: 8px; height: 9px; box-sizing: border-box; border-left: 3px solid currentColor; border-right: 3px solid currentColor; margin-top: 3px; }
+.mk-headline { min-width: 0; font-size: 13px; line-height: 1.3; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mk-foot { height: 40px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; font-family: var(--cst-mono); font-size: 10px; }
+.mk-foot-dots { display: flex; gap: 7px; }
+.mk-foot-dots i { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; display: block; }
+</style>
+
+<div class="cst-wrap">
+
+    <header class="cst-head">
+        <p class="cst-label">In Hooker's Shadow · cover colour study · round 2</p>
+        <h1>Cover Seam Trials</h1>
+        <p>Four colour families for the home cover, as the theme would draw them. Hooker green is fixed at the top of the masthead and in the foot. Each week takes one family for the lower masthead and the This Week bar, with the bar either dark (white text) or pale (dark text). The colours come from the same logic as version 2.8.0's cover-verb.js, with two changes proposed here: a new berries family, and autumn's pale end stretched from ochre towards straw.</p>
+        <p>Seams are drawn as built: the masthead keeps its blur, a pale bar meets the foot along a crisp wave, a dark bar meets it with a soft blur. The cards are smaller than the real cover, so the masthead blur looks a little stronger here than on screen.</p>
+    </header>
+
+    <section class="cst-controls" aria-label="Controls">
+        <div class="cst-field">
+            <span class="cst-label">Sample weeks</span>
+            <button type="button" class="cst-btn" id="cst-reroll">Draw new weeks</button>
+        </div>
+        <div class="cst-field">
+            <label class="cst-label" for="cst-accent-text">Menu button accent</label>
+            <div class="cst-colour">
+                <input type="color" id="cst-accent" value="#8f4a32" aria-label="Accent colour picker">
+                <input type="text" id="cst-accent-text" value="#8f4a32" spellcheck="false">
+            </div>
+        </div>
+        <p class="cst-controls-note">Each family shows four sample weeks: two with a dark bar, two with a pale one. "Draw new weeks" picks fresh colours from the same ranges, the way a new TWiB address would. Paste your real accent colour to see the Menu button as it is.</p>
+    </section>
+
+    <div id="cst-families"></div>
+
+    <section class="cst-section" aria-labelledby="cst-seam-title">
+        <h2 id="cst-seam-title">Seam reference: the near-opposites</h2>
+        <p>Kept from round one. Rust and plum both sit close to the opposite of Hooker green, so the blurred masthead seam between them goes slightly muddy. You decided to keep the blur for now; berries would add more weeks where this shows. Each row shows the four treatments side by side.</p>
+        <div class="cst-row4" id="cst-seam-rust"></div>
+        <div class="cst-row4" id="cst-seam-plum"></div>
+    </section>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var HOOKER = '#2f5d50';
+    var INK = '#16211c';
+
+    /* ---- colour maths, as cover-verb.js ---- */
+    function oklchLinear(L, C, H) {
+        var hr = H * Math.PI / 180, a = C * Math.cos(hr), b = C * Math.sin(hr);
+        var l = L + 0.3963377774 * a + 0.2158037573 * b;
+        var m = L - 0.1055613458 * a - 0.0638541728 * b;
+        var s = L - 0.0894841775 * a - 1.2914855480 * b;
+        l = l * l * l; m = m * m * m; s = s * s * s;
+        return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+    }
+    function c01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+    function gamma(x) {
+        x = c01(x);
+        x = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+        var h = Math.round(x * 255).toString(16);
+        return h.length === 1 ? '0' + h : h;
+    }
+    function oklchHex(L, C, H) { var v = oklchLinear(L, C, H); return '#' + gamma(v[0]) + gamma(v[1]) + gamma(v[2]); }
+    function whiteContrastLCH(L, C, H) {
+        var v = oklchLinear(L, C, H);
+        var Y = 0.2126 * c01(v[0]) + 0.7152 * c01(v[1]) + 0.0722 * c01(v[2]);
+        return 1.05 / (Y + 0.05);
+    }
+    function clampWhiteSafe(L, C, H) {
+        var g = 0;
+        while (whiteContrastLCH(L, C, H) < 5.8 && L > 0.28 && g < 60) { L -= 0.01; g++; }
+        return oklchHex(L, C, H);
+    }
+    function lum(hex) {
+        var n = parseInt(hex.slice(1), 16);
+        return [n >> 16 & 255, n >> 8 & 255, n & 255].map(function (c) {
+            c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        }).reduce(function (acc, c, i) { return acc + c * [0.2126, 0.7152, 0.0722][i]; }, 0);
+    }
+    function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+
+    function mulberry32(a) {
+        return function () {
+            a |= 0; a = a + 0x6D2B79F5 | 0;
+            var t = Math.imul(a ^ a >>> 15, 1 | a);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+    }
+    function rand(rng, min, max) { return min + rng() * (max - min); }
+
+    /* ---- the families. Hue ranges in OKLCH degrees. Greens and aquas exactly as 2.8.0. ---- */
+    var FAMILIES = [
+        { key: 'greens', title: 'Greens', pigment: 'Chlorophyll',
+          text: 'Yellow-greens on one side of Hooker green. The calmest family: the cover stays green and changes its accent.',
+          deepH: [110, 152], deepC: [0.06, 0.11], paleH: [105, 150], paleC: [0.03, 0.06] },
+        { key: 'aquas', title: 'Aquas', pigment: 'Water and sea-glass',
+          text: 'Teals through petrol blue, on the other side of Hooker green. Teal weeks sit close to the anchor; that is that week’s character.',
+          deepH: [178, 224], deepC: [0.05, 0.10], paleH: [175, 215], paleC: [0.022, 0.042] },
+        { key: 'autumn', title: 'Autumn', pigment: 'Carotenoids and anthocyanins', changed: 'Pale end extended',
+          text: 'Browns, rusts, burnt oranges and reds. The pale end now runs on past ochre to straw (it stopped at ochre in 2.8.0), covering the yellow carotenoids. True primrose would need more saturation than the pale range allows; at this strength the yellow end reads as straw.',
+          deepH: [18, 70], deepC: [0.07, 0.13], paleH: [45, 100], paleC: [0.04, 0.08] },
+        { key: 'berries', title: 'Berries', pigment: 'Anthocyanins', changed: 'New',
+          text: 'Plum, damson, beetroot and heather, with wisteria, heather-pink and blush at the pale end. The other side of Hooker green’s opposite from autumn, so warm weeks become half of all weeks rather than a third.',
+          deepH: [305, 358], deepC: [0.06, 0.13], paleH: [300, 352], paleC: [0.03, 0.06] }
+    ];
+
+    var HEADLINES = [
+        'Why some orchids fake the smell of a fungus to lure their pollinators',
+        'How *Arabidopsis* roots decide which way is down',
+        'Fossil pollen shows how fast forests followed the retreating ice',
+        'Meet the botanist mapping lichens on city gravestones',
+        'A grass that switches photosynthesis modes when water runs short',
+        'What seed banks learned from the oldest seeds ever germinated',
+        'The trees that share sugar through their fungal partners',
+        'Why tomatoes taste different when grown under red light'
+    ];
+
+    function awayFrom(rng, h, r) {
+        var x = rand(rng, r[0], r[1]);
+        if (Math.abs(x - h) < 12) x = (h + 12 <= r[1]) ? h + 12 + rng() * 6 : h - 12 - rng() * 6;
+        return Math.max(r[0], Math.min(r[1], x));
+    }
+
+    /* One week's colours, exactly as cover-verb.js computes them. */
+    function weekColours(fam, pale, rng) {
+        var mastH = rand(rng, fam.deepH[0], fam.deepH[1]);
+        var c2 = clampWhiteSafe(rand(rng, 0.40, 0.52), rand(rng, fam.deepC[0], fam.deepC[1]), mastH);
+        var bar, ink;
+        if (pale) {
+            bar = oklchHex(rand(rng, 0.86, 0.92), rand(rng, fam.paleC[0], fam.paleC[1]), awayFrom(rng, mastH, fam.paleH));
+            ink = INK;
+        } else {
+            bar = clampWhiteSafe(rand(rng, 0.32, 0.46), rand(rng, fam.deepC[0], fam.deepC[1]), awayFrom(rng, mastH, fam.deepH));
+            ink = '#ffffff';
+        }
+        return { mast: c2, bar: bar, ink: ink };
+    }
+
+    /* ---- drawing ---- */
+    var uid = 0;
+    var NS = 'http://www.w3.org/2000/svg';
+    var defsSvg = document.createElementNS(NS, 'svg');
+    defsSvg.setAttribute('width', '0'); defsSvg.setAttribute('height', '0');
+    defsSvg.setAttribute('aria-hidden', 'true');
+    defsSvg.style.position = 'absolute';
+    var defs = document.createElementNS(NS, 'defs');
+    defsSvg.appendChild(defs);
+    document.body.appendChild(defsSvg);
+
+    function wavyClip(amp, freq, whole) {
+        var id = 'cst-wave-' + (++uid);
+        var cp = document.createElementNS(NS, 'clipPath');
+        cp.setAttribute('id', id);
+        cp.setAttribute('clipPathUnits', 'objectBoundingBox');
+        var p = document.createElementNS(NS, 'path');
+        var lift = whole ? amp : 0, d = 'M 0,0 ';
+        for (var x = 0; x <= 1.0001; x += 0.05) d += 'L ' + x.toFixed(3) + ',' + (amp * Math.sin(x * Math.PI * 2 * freq) + lift).toFixed(4) + ' ';
+        d += 'L 1,1 L 0,1 Z';
+        p.setAttribute('d', d);
+        cp.appendChild(p);
+        defs.appendChild(cp);
+        return id;
+    }
+
+    function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+    }
+
+    /* The masthead seam: cover-verb.js buildVerb(), with an optional treatment for the reference row. */
+    function paintMasthead(band, top, bottom, rng, mode) {
+        mode = mode || 'current';
+        var seam = 45 + rng() * 20, rot = (rng() - 0.5) * 4;
+        var verb = el('div', 'mk-verb');
+        var blur = mode === 'current' || mode === 'oklch' ? 6 : mode === 'tight' ? 2 : 0;
+        var b1 = el('div', 'mk-block');
+        b1.style.cssText = 'background:' + top + ';top:-12%;height:' + (seam + 15) + '%;transform:rotate(' + rot + 'deg);filter:' + (blur ? 'blur(' + blur + 'px)' : 'none');
+        var b2 = el('div', 'mk-block');
+        b2.style.cssText = 'background:' + bottom + ';top:' + (seam - 3) + '%;height:' + (115 - seam) + '%;transform:rotate(' + (-rot) + 'deg);filter:' + (blur ? 'blur(' + blur + 'px)' : 'none');
+        b2.style.clipPath = 'url(#' + wavyClip(0.006 + rng() * 0.014, 1 + rng() * 2, false) + ')';
+        verb.appendChild(b1); verb.appendChild(b2);
+        if (mode !== 'crisp') {
+            var e = el('div', 'mk-edge');
+            e.style.transform = 'rotate(' + rot + 'deg)';
+            if (mode === 'current') {
+                e.style.cssText += ';top:' + (seam - 3) + '%;height:88px;opacity:.5;filter:blur(24px);background:linear-gradient(to bottom, transparent, ' + bottom + ', transparent)';
+            } else if (mode === 'tight') {
+                e.style.cssText += ';top:calc(' + seam + '% - 12px);height:24px;opacity:.6;filter:blur(6px);background:linear-gradient(to bottom, transparent, ' + bottom + ', transparent)';
+            } else {
+                e.style.cssText += ';top:calc(' + seam + '% - 34px);height:68px;filter:blur(10px);background:linear-gradient(in oklch to bottom, ' + top + ' 8%, ' + bottom + ' 92%)';
+            }
+            verb.appendChild(e);
+        }
+        band.style.background = 'linear-gradient(to bottom, ' + top + ' ' + seam + '%, ' + bottom + ' ' + seam + '%)';
+        band.insertBefore(verb, band.firstChild);
+    }
+
+    /* The bar-to-foot seam: cover-verb.js buildLower(). Pale bar: crisp wave. Dark bar: soft blur. */
+    function paintLower(band, ticker, top, bottom, crisp, rng) {
+        var seamPx = ticker.offsetHeight, total = band.offsetHeight;
+        var rot = rng() - 0.5;
+        var verb = el('div', 'mk-verb');
+        var b1 = el('div', 'mk-block'), b2 = el('div', 'mk-block');
+        b1.style.cssText = 'background:' + top + ';top:-20px;height:' + (seamPx + 23) + 'px;transform:rotate(' + rot + 'deg);filter:' + (crisp ? 'none' : 'blur(6px)');
+        b2.style.cssText = 'background:' + bottom + ';top:' + (seamPx - 3) + 'px;height:' + (total - seamPx + 20) + 'px;transform:rotate(' + (-rot) + 'deg);filter:' + (crisp ? 'none' : 'blur(6px)');
+        b2.style.clipPath = 'url(#' + wavyClip(0.02 + rng() * 0.025, 1 + rng() * 1.5, true) + ')';
+        verb.appendChild(b1); verb.appendChild(b2);
+        if (!crisp) {
+            var e = el('div', 'mk-edge');
+            e.style.cssText = 'top:' + (seamPx - 20) + 'px;height:40px;filter:blur(14px);background:linear-gradient(to bottom, transparent, ' + bottom + ', transparent);transform:rotate(' + rot + 'deg)';
+            verb.appendChild(e);
+        }
+        band.style.background = 'linear-gradient(to bottom, ' + top + ' ' + seamPx + 'px, ' + bottom + ' ' + seamPx + 'px)';
+        band.insertBefore(verb, band.firstChild);
+    }
+
+    function paintPhoto(canvas, seed) {
+        var w = canvas.width = 500, h = canvas.height = 280;
+        var ctx = canvas.getContext('2d');
+        var r = mulberry32(seed * 7919 + 13);
+        var g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#a3b99c'); g.addColorStop(1, '#41603c');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+        ctx.filter = 'blur(10px)';
+        for (var i = 0; i < 28; i++) {
+            ctx.fillStyle = ['#6f8f4e', '#2f4f2a', '#cdb46a', '#88a86b', '#ead9a8', '#3c5b3a', '#b77a8f'][Math.floor(r() * 7)];
+            ctx.globalAlpha = 0.55;
+            ctx.beginPath();
+            ctx.ellipse(r() * w, r() * h, 20 + r() * 70, 10 + r() * 35, r() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1; ctx.filter = 'none';
+    }
+
+    function buildMasthead() {
+        var mast = el('div', 'mk-band mk-mast');
+        var content = el('div', 'mk-content');
+        var row = el('div', 'mk-toprow');
+        var menu = el('div', 'mk-menu'); menu.appendChild(el('span'));
+        row.appendChild(menu);
+        row.appendChild(el('div', 'mk-word', 'Botany One'));
+        row.appendChild(el('div', 'mk-search'));
+        content.appendChild(row);
+        content.appendChild(el('div', 'mk-strap', 'Lab science. Citizen science. Your source for plant science.'));
+        mast.appendChild(content);
+        return mast;
+    }
+
+    /* Builds the cover into the page first (so the bar's real height can be measured), then paints. */
+    function buildCover(host, colours, pale, rng, n) {
+        var mk = el('div', 'mk');
+        mk.setAttribute('role', 'img');
+        var mast = buildMasthead();
+        mk.appendChild(mast);
+        var photo = el('div', 'mk-photo');
+        var cv = document.createElement('canvas');
+        paintPhoto(cv, n);
+        photo.appendChild(cv);
+        mk.appendChild(photo);
+
+        var lower = el('div', 'mk-band');
+        var lc = el('div', 'mk-content');
+        var tk = el('div', 'mk-ticker');
+        tk.style.color = colours.ink;
+        var left = el('div', 'mk-stack');
+        left.appendChild(el('b', null, 'This'));
+        left.appendChild(el('b', null, 'week'));
+        left.appendChild(el('span', 'mk-count', (2 + n % 5) + '/12'));
+        var right = el('div', 'mk-stack is-right');
+        right.appendChild(el('b', null, 'See'));
+        right.appendChild(el('b', null, 'all'));
+        right.appendChild(el('span', 'mk-pause'));
+        tk.appendChild(left);
+        tk.appendChild(el('div', 'mk-headline', HEADLINES[n % HEADLINES.length].replace(/\*/g, '')));
+        tk.appendChild(right);
+        var foot = el('div', 'mk-foot');
+        foot.appendChild(el('span', null, '© 2026 Botany One.'));
+        var dots = el('span', 'mk-foot-dots'); dots.appendChild(el('i')); dots.appendChild(el('i')); dots.appendChild(el('i'));
+        foot.appendChild(dots);
+        lc.appendChild(tk); lc.appendChild(foot);
+        lower.appendChild(lc);
+        mk.appendChild(lower);
+        host.appendChild(mk);
+
+        mk.setAttribute('aria-label', 'Mock cover: lower masthead ' + colours.mast + ', ' + (pale ? 'pale' : 'dark') + ' bar ' + colours.bar);
+        paintMasthead(mast, HOOKER, colours.mast, rng);
+        paintLower(lower, tk, colours.bar, HOOKER, pale, rng);
+    }
+
+    function swatch(label, hex) {
+        var s = el('span', 'cst-swatch');
+        var i = el('i'); i.style.background = hex;
+        s.appendChild(i);
+        var whiteC = contrast(hex, '#ffffff'), inkC = contrast(hex, INK);
+        var useWhite = whiteC >= inkC;
+        s.appendChild(document.createTextNode(label + ' ' + hex + ' · ' + (useWhite ? whiteC : inkC).toFixed(1) + ':1'));
+        return s;
+    }
+
+    function strip(fam, which) {
+        var s = el('div', 'cst-strip');
+        var r = which === 'deep' ? fam.deepH : fam.paleH;
+        var cMid = which === 'deep' ? (fam.deepC[0] + fam.deepC[1]) / 2 : (fam.paleC[0] + fam.paleC[1]) / 2;
+        for (var k = 0; k < 10; k++) {
+            var h = r[0] + (r[1] - r[0]) * k / 9;
+            var i = el('i');
+            i.style.background = which === 'deep' ? clampWhiteSafe(0.48, cMid, h) : oklchHex(0.89, cMid, h);
+            s.appendChild(i);
+        }
+        s.setAttribute('role', 'img');
+        s.setAttribute('aria-label', fam.title + ' ' + which + ' range, ' + r[0] + '° to ' + r[1] + '°');
+        return s;
+    }
+
+    var drawSeed = 20261020;
+
+    function render() {
+        while (defs.firstChild) defs.removeChild(defs.firstChild);
+        var root = document.getElementById('cst-families');
+        root.textContent = '';
+        var n = 0;
+        FAMILIES.forEach(function (fam, fi) {
+            var sec = el('section', 'cst-family');
+            sec.setAttribute('aria-labelledby', 'cst-fam-' + fam.key);
+            var head = el('div', 'cst-family-head');
+            var h2 = el('h2', null, fam.title); h2.id = 'cst-fam-' + fam.key;
+            head.appendChild(h2);
+            head.appendChild(el('span', 'cst-pigment', fam.pigment));
+            if (fam.changed) head.appendChild(el('span', 'cst-badge', fam.changed));
+            sec.appendChild(head);
+            sec.appendChild(el('p', null, fam.text));
+
+            var ranges = el('div', 'cst-ranges');
+            ranges.appendChild(el('span', 'cst-label', 'Lower masthead / dark bar'));
+            ranges.appendChild(strip(fam, 'deep'));
+            ranges.appendChild(el('span', 'cst-label', 'Pale bar'));
+            ranges.appendChild(strip(fam, 'pale'));
+            sec.appendChild(ranges);
+
+            var weeks = el('div', 'cst-weeks');
+            sec.appendChild(weeks);
+            root.appendChild(sec);
+
+            [false, true, false, true].forEach(function (pale, wi) {
+                var rng = mulberry32(drawSeed + fi * 101 + wi * 7);
+                var colours = weekColours(fam, pale, rng);
+                var card = el('article', 'cst-card');
+                card.appendChild(el('p', 'cst-card-title', fam.title + ' · ' + (pale ? 'pale bar' : 'dark bar')));
+                weeks.appendChild(card);
+                buildCover(card, colours, pale, rng, n++);
+                var sw = el('div', 'cst-swatches');
+                sw.appendChild(swatch('Masthead', colours.mast));
+                sw.appendChild(swatch('Bar', colours.bar));
+                card.appendChild(sw);
+            });
+        });
+
+        [['cst-seam-rust', clampWhiteSafe(0.5, 0.12, 38), 'Rust'], ['cst-seam-plum', clampWhiteSafe(0.48, 0.11, 330), 'Plum']].forEach(function (row) {
+            var host = document.getElementById(row[0]);
+            host.textContent = '';
+            ['current', 'tight', 'crisp', 'oklch'].forEach(function (m, mi) {
+                var card = el('div', 'cst-card');
+                card.appendChild(el('p', 'cst-card-title', row[2] + ' · ' + { current: 'current 24px blur (kept)', tight: 'tight 6px blur', crisp: 'crisp wave', oklch: 'OKLCH blend' }[m]));
+                var mk = el('div', 'mk');
+                mk.setAttribute('role', 'img');
+                mk.setAttribute('aria-label', 'Masthead, Hooker green into ' + row[2] + ', ' + m + ' seam');
+                var mast = buildMasthead();
+                mk.appendChild(mast);
+                card.appendChild(mk);
+                host.appendChild(card);
+                paintMasthead(mast, HOOKER, row[1], mulberry32(77 + mi), m);
+            });
+        });
+    }
+
+    /* ---- controls ---- */
+    var accent = document.getElementById('cst-accent');
+    var accentText = document.getElementById('cst-accent-text');
+    function setAccent(v) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
+        document.documentElement.style.setProperty('--mk-accent', v);
+        accent.value = v.toLowerCase();
+        accentText.value = v.toLowerCase();
+    }
+    accent.addEventListener('input', function () { setAccent(accent.value); });
+    accentText.addEventListener('input', function () { setAccent(accentText.value.trim()); });
+    document.getElementById('cst-reroll').addEventListener('click', function () {
+        drawSeed = (drawSeed * 1103515245 + 12345) >>> 0;
+        render();
+    });
+
+    setAccent('#8f4a32');
+    render();
+})();
+</script>
+
+</body></html>
