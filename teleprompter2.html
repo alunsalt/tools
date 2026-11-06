@@ -125,7 +125,7 @@ details li{margin:6px 0}
       <li><b>Taps.</b> Left third goes back a phrase, right third goes forward a phrase, middle pauses or resumes. If listening has dropped, tapping also restarts it.</li>
       <li><b>Voice following</b> uses Safari's built-in speech recognition. Dictation must be switched on (Settings → General → Keyboard → Enable Dictation), and you need to allow the microphone when asked. It sends audio to Apple, so it needs a connection.</li>
       <li><b>Microphone.</b> A lav or USB mic plugged into the iPad is picked up automatically. Connect it before pressing Start.</li>
-      <li><b>Start delay.</b> After you press Start, a countdown gives you time to walk over and sit down. Listening begins with your tap on Start (Safari needs that), but what it hears is ignored, and steady scroll waits, until the countdown reaches zero. Tapping the screen or pressing a key starts it early. Set it to 0 to start at once.</li>
+      <li><b>Start delay.</b> After you press Start, a countdown gives you time to walk over and sit down. Listening begins with your tap on Start (Safari needs that), but what it hears is ignored, and steady scroll waits, until the countdown reaches zero. Tapping the screen or pressing a key starts it early. Set it to 0 to start at once. If listening drops while you are away from the iPad, only a tap or key press can restart it; the pill then reads “Not listening · tap to restart”.</li>
       <li><b>Clicker or keyboard.</b> A Bluetooth page-turner or keyboard counts as a tap: any key press restarts listening if it has dropped, and the arrow, Page Up/Down and space keys move or pause the text.</li>
       <li><b>When it can't hear you</b> the text stays where it is and the pill turns amber. It never runs on ahead of you.</li>
       <li><b>Without Safari's toolbars:</b> Share → Add to Home Screen. If speech won't start from the home-screen icon, use it from a normal Safari tab instead.</li>
@@ -330,7 +330,7 @@ var words = [], chunks = [], wordEls = [], chunkEls = [];
 var pos = 0, fpos = 0;
 var prompterOpen = false, calibrating = false, paused = false;
 var rec = null, wantRec = false, recActive = false, startPending = false, restartTimer = null;
-var failStreak = 0, sessErr = false, startedAt = 0, startReqAt = 0, everStarted = false, counting = false, cdEnd = 0, cdTimer = null;
+var failStreak = 0, sessErr = false, startedAt = 0, startReqAt = 0, everStarted = false, counting = false, cdEnd = 0, cdTimer = null, lastActiveAt = 0, lastKickAt = 0;
 var fatal = '', lastHeard = 0, lastAdvance = 0, steadyTimer = null, statusTimer = null, wl = null;
 var freq = {}, pending = null, lastJump = null, farBlockUntil = 0, logArr = [], logKey = '', logT0 = 0;
 var CONFIRM_MS = 4000, UNDO_MS = 10000, FAR_BLOCK_MS = 8000, WATCHDOG_MS = 6000;
@@ -439,7 +439,11 @@ function updateStatus(){
   else if (pos >= words.length) txt = 'End of script';
   else if (S.mode === 'follow'){
     if (fatal){ txt = fatal; warn = true; }
-    else if (!recActive){ txt = failStreak > 0 ? 'Waiting for mic…' : 'Reconnecting…'; warn = true; }
+    else if (!recActive){
+      if (Date.now() - lastActiveAt > 5000) txt = 'Not listening · tap to restart';
+      else txt = failStreak > 0 ? 'Waiting for mic…' : 'Reconnecting…';
+      warn = true;
+    }
     else if (Date.now() - lastHeard > 5000){ txt = 'Not hearing you'; warn = true; }
     else txt = 'Listening · ' + pct + '%';
   }
@@ -568,11 +572,12 @@ function startRec(){
   var r = new SR();
   r.continuous = true; r.interimResults = true; r.lang = S.lang; r.maxAlternatives = 1;
   r.onstart = function(){
-    recActive = true; startPending = false; startedAt = Date.now(); sessErr = false; everStarted = true;
+    recActive = true; startPending = false; startedAt = Date.now(); sessErr = false; everStarted = true; lastActiveAt = Date.now();
     logEvent(pos, '(recogniser)', 'listening started', true);
     updateStatus();
   };
   r.onend = function(){
+    if (recActive) lastActiveAt = Date.now();
     recActive = false; startPending = false;
     var lived = startedAt ? Date.now() - startedAt : 0;
     if (!sessErr && lived >= 2000) failStreak = 0;     // a healthy session that simply ended
@@ -592,6 +597,7 @@ function startRec(){
       // Everything else, including "no microphone", is treated as temporary: back off and retry.
       if (err !== 'no-speech'){ sessErr = true; failStreak++; }
       logEvent(pos, '(recogniser)', 'error: ' + err, true);
+      if (recActive) lastActiveAt = Date.now();
       recActive = false;
       if (wantRec && r === rec) scheduleRestart();
     }
@@ -645,6 +651,8 @@ function watchdog(){
 function kick(){
   if (S.mode !== 'follow' || calibrating || !SR) return;
   if (recActive) return;
+  if (startPending && Date.now() - lastKickAt < 1500) return;   // a tap just started it: let it answer
+  lastKickAt = Date.now();
   fatal = ''; failStreak = 0; wantRec = true; startPending = false;
   logEvent(pos, '(tap)', 'restarting the recogniser', true);
   startRec();
@@ -713,7 +721,7 @@ function openPrompter(calib){
   $('panel').classList.toggle('on', calibrating);
   layout();
   requestAnimationFrame(function(){ colEl.style.transition = ''; });
-  counting = false; failStreak = 0; everStarted = false; clearInterval(cdTimer); pEl.classList.remove('cd');
+  counting = false; failStreak = 0; everStarted = false; lastActiveAt = Date.now(); clearInterval(cdTimer); pEl.classList.remove('cd');
   if (!calibrating){
     clearInterval(steadyTimer); steadyTimer = setInterval(steadyTick, 100);
     // Listening starts here, inside the tap on Start: Safari may ignore a start that doesn't come from a
@@ -786,16 +794,22 @@ function flash(id){
 function togglePause(){
   if (calibrating) return;
   paused = !paused;
-  if (!paused){ pending = null; kick(); }
+  if (!paused){ pending = null; }
   updateStatus();
 }
 function bindZone(id, fn){
   $(id).addEventListener('pointerdown', function(e){
     e.preventDefault(); flash(id);
-    if (counting){ kick(); beginSession(); return; }  // any tap during the countdown starts now
-    kick(); fn();
+    if (counting){ beginSession(); return; }          // any tap during the countdown starts now
+    fn();
   });
 }
+// Safari only lets listening be (re)started from a user action it recognises: a finished tap (touchend /
+// click) or a key press. The touch-down that the zones react to doesn't count, so the restart is
+// attached here instead.
+function gestureKick(){ if (prompterOpen) kick(); }
+document.addEventListener('touchend', gestureKick, true);
+document.addEventListener('click', gestureKick, true);
 bindZone('zBack', function(){ if (!calibrating) nudge(-1); });
 bindZone('zFwd', function(){ if (!calibrating) nudge(1); });
 bindZone('zMid', togglePause);
