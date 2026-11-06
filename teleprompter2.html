@@ -65,6 +65,10 @@ details li{margin:6px 0}
 #prompter.dbg #dbg{display:block}
 #pCopy{display:none;font-size:15px;padding:9px 14px}
 #prompter.dbg #pCopy{display:inline-block}
+#cd{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);z-index:3;display:none;pointer-events:none;text-align:center;line-height:1}
+#cd .n{font-size:30vmin;font-weight:700;color:var(--accent);text-shadow:0 2px 30px #000,0 0 6px #000}
+#cd .t{font-size:3.4vmin;color:#ddd;margin-top:1.5vmin;text-shadow:0 1px 8px #000}
+#prompter.cd #cd{display:block}
 </style>
 </head>
 <body>
@@ -103,6 +107,9 @@ details li{margin:6px 0}
     </label>
     <label class="chk"><input type="checkbox" id="mirror"> Mirror text</label>
     <label class="chk"><input type="checkbox" id="debug"> Debug strip (what it heard, why it moved)</label>
+    <label>Start delay (seconds)
+      <input id="delay" type="number" min="0" max="60" step="1">
+    </label>
   </div>
 
   <div class="btns">
@@ -118,6 +125,7 @@ details li{margin:6px 0}
       <li><b>Taps.</b> Left third goes back a phrase, right third goes forward a phrase, middle pauses or resumes. If listening has dropped, tapping also restarts it.</li>
       <li><b>Voice following</b> uses Safari's built-in speech recognition. Dictation must be switched on (Settings → General → Keyboard → Enable Dictation), and you need to allow the microphone when asked. It sends audio to Apple, so it needs a connection.</li>
       <li><b>Microphone.</b> A lav or USB mic plugged into the iPad is picked up automatically. Connect it before pressing Start.</li>
+      <li><b>Start delay.</b> After you press Start, a countdown gives you time to walk over and sit down. Nothing listens or scrolls until it reaches zero, and tapping the screen starts it early. Set it to 0 to start at once.</li>
       <li><b>When it can't hear you</b> the text stays where it is and the pill turns amber. It never runs on ahead of you.</li>
       <li><b>Without Safari's toolbars:</b> Share → Add to Home Screen. If speech won't start from the home-screen icon, use it from a normal Safari tab instead.</li>
       <li><b>Keyboard</b> (for testing on a computer): arrows move, space pauses, Esc exits.</li>
@@ -137,6 +145,7 @@ details li{margin:6px 0}
   <button class="ui-btn" id="btnAdjust" aria-label="Adjust">&#9776;</button>
   <div id="pill">…</div>
   <div id="dbg"></div>
+  <div id="cd"><div class="n" id="cdn"></div><div class="t">Tap anywhere to start now</div></div>
   <div id="panel">
     <div class="rows">
       <label>Text size <input type="range" id="pSize" min="4" max="18" step="0.5"></label>
@@ -303,7 +312,7 @@ function findMatch(rec, words, pos, win, freq, diag){
 
 var $ = function(id){ return document.getElementById(id); };
 var KEY = 'gardenPrompter.v1';
-var DEF = { script:'', size:9, bandY:20, colX:0, colW:62, mirror:false, align:'center', mode:'follow', wpm:140, lang:'en-GB', debug:false };
+var DEF = { script:'', size:9, bandY:20, colX:0, colW:62, mirror:false, align:'center', mode:'follow', wpm:140, lang:'en-GB', debug:false, delay:15 };
 var S = {};
 var SAMPLE = 'Use the sliders to line the text up just above or beside the lens. This sample shows how much text you will see at once. The underlined word is where the prompter thinks you are, and the dimmed words are the ones already said. Tap the right-hand side to move forward.';
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -319,7 +328,8 @@ function saveS(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e)
 var words = [], chunks = [], wordEls = [], chunkEls = [];
 var pos = 0, fpos = 0;
 var prompterOpen = false, calibrating = false, paused = false;
-var rec = null, wantRec = false, recActive = false, startPending = false, restartTimer = null, restarts = [];
+var rec = null, wantRec = false, recActive = false, startPending = false, restartTimer = null;
+var failStreak = 0, sessErr = false, startedAt = 0, counting = false, cdEnd = 0, cdTimer = null;
 var fatal = '', lastHeard = 0, lastAdvance = 0, steadyTimer = null, statusTimer = null, wl = null;
 var freq = {}, pending = null, lastJump = null, farBlockUntil = 0, logArr = [], logKey = '', logT0 = 0;
 var CONFIRM_MS = 4000, UNDO_MS = 10000, FAR_BLOCK_MS = 8000;
@@ -329,7 +339,7 @@ var fontPx = 60, flashTimers = {};
 /* ---------- editor ---------- */
 function syncEditor(){
   $('script').value = S.script;
-  $('mode').value = S.mode; $('wpm').value = S.wpm; $('lang').value = S.lang;
+  $('mode').value = S.mode; $('wpm').value = S.wpm; $('lang').value = S.lang; $('delay').value = S.delay;
   $('align').value = S.align; $('mirror').checked = !!S.mirror; $('debug').checked = !!S.debug; $('copyLog').style.display = S.debug ? '' : 'none';
   $('wpmWrap').style.display = S.mode === 'steady' ? '' : 'none';
   updateCount();
@@ -345,6 +355,7 @@ $('wpm').addEventListener('change', function(){ S.wpm = Math.max(60, Math.min(26
 $('lang').addEventListener('change', function(){ S.lang = this.value; saveS(); });
 $('align').addEventListener('change', function(){ S.align = this.value; saveS(); });
 $('mirror').addEventListener('change', function(){ S.mirror = this.checked; saveS(); });
+$('delay').addEventListener('change', function(){ S.delay = Math.max(0, Math.min(60, Math.round(+this.value || 0))); this.value = S.delay; saveS(); });
 $('debug').addEventListener('change', function(){ S.debug = this.checked; saveS(); $('copyLog').style.display = S.debug ? '' : 'none'; });
 
 /* ---------- prompter building and layout ---------- */
@@ -422,11 +433,12 @@ function updateStatus(){
   if (!prompterOpen) return;
   var txt = '', warn = false, pct = words.length ? Math.round(Math.min(pos, words.length) / words.length * 100) : 0;
   if (calibrating) txt = 'Position set-up';
+  else if (counting) txt = 'Starting in ' + Math.max(1, Math.ceil((cdEnd - Date.now()) / 1000)) + 's · tap to start now';
   else if (paused) txt = 'Paused · ' + pct + '%';
   else if (pos >= words.length) txt = 'End of script';
   else if (S.mode === 'follow'){
     if (fatal){ txt = fatal; warn = true; }
-    else if (!recActive){ txt = 'Reconnecting…'; warn = true; }
+    else if (!recActive){ txt = failStreak > 0 ? 'Waiting for mic…' : 'Reconnecting…'; warn = true; }
     else if (Date.now() - lastHeard > 5000){ txt = 'Not hearing you'; warn = true; }
     else txt = 'Listening · ' + pct + '%';
   }
@@ -462,9 +474,9 @@ function nudge(dir){
 /* ---------- following decisions, undo and debug log ---------- */
 var toastTxt = '', toastUntil = 0;
 
-function logEvent(p0, heard, what){
+function logEvent(p0, heard, what, force){
   var key = p0 + '|' + heard + '|' + what;
-  if (key === logKey) return;
+  if (!force && key === logKey) return;
   logKey = key;
   var t = ((Date.now() - logT0) / 1000).toFixed(1);
   var at = (p0 < words.length) ? '#' + p0 + ' "' + words[p0].n + '"' : 'end';
@@ -554,29 +566,44 @@ function startRec(){
   killRec();
   var r = new SR();
   r.continuous = true; r.interimResults = true; r.lang = S.lang; r.maxAlternatives = 1;
-  r.onstart = function(){ recActive = true; startPending = false; };
+  r.onstart = function(){
+    recActive = true; startPending = false; startedAt = Date.now(); sessErr = false;
+    logEvent(pos, '(recogniser)', 'listening started', true);
+  };
   r.onend = function(){
     recActive = false; startPending = false;
+    var lived = startedAt ? Date.now() - startedAt : 0;
+    if (!sessErr && lived >= 2000) failStreak = 0;     // a healthy session that simply ended
+    logEvent(pos, '(recogniser)', 'ended after ' + (lived / 1000).toFixed(1) + 's', true);
     if (wantRec && r === rec) scheduleRestart();
     updateStatus();
   };
   r.onerror = function(e){
     startPending = false;
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+    var err = (e && e.error) || 'unknown';
+    if (err === 'aborted') return;                      // we stopped it ourselves
+    if (err === 'not-allowed' || err === 'service-not-allowed'){
+      // Permission refusals can't fix themselves, and retrying would only re-prompt.
       fatal = 'Mic or speech blocked. Tap to retry.'; wantRec = false;
-    } else if (e.error === 'audio-capture'){
-      fatal = 'No microphone found'; wantRec = false;
+      logEvent(pos, '(recogniser)', 'error: ' + err + ' (permission, not retrying)', true);
+    } else {
+      // Everything else, including "no microphone", is treated as temporary: back off and retry.
+      if (err !== 'no-speech'){ sessErr = true; failStreak++; }
+      logEvent(pos, '(recogniser)', 'error: ' + err, true);
+      recActive = false;
+      if (wantRec && r === rec) scheduleRestart();
     }
     updateStatus();
   };
   r.onresult = function(e){
-    lastHeard = Date.now(); restarts = [];
+    lastHeard = Date.now(); failStreak = 0;
     if (paused || S.mode !== 'follow' || calibrating) return;
     var txt = '';
     for (var i = 0; i < e.results.length; i++) txt += ' ' + e.results[i][0].transcript;
     var rw = txt.split(/\s+/).map(norm).filter(Boolean);
     onHeard(rw);
   };
+  startedAt = 0; sessErr = false;
   rec = r; startPending = true;
   try { r.start(); } catch(e){ startPending = false; }
 }
@@ -589,24 +616,24 @@ function killRec(){
   recActive = false; startPending = false;
 }
 
+// Quick restart after a normal end or a silence timeout; growing back-off (0.5s, 1s, 2s, 4s, then 5s)
+// while the recogniser keeps failing. It never gives up, so a mic that comes back is picked up again.
 function scheduleRestart(){
   clearTimeout(restartTimer);
-  var now = Date.now();
-  restarts = restarts.filter(function(t){ return now - t < 10000; });
-  restarts.push(now);
-  var delay = restarts.length > 4 ? 1500 : 200;
-  restartTimer = setTimeout(function(){ if (wantRec && prompterOpen) startRec(); }, delay);
+  var delay = failStreak === 0 ? 250 : Math.min(5000, 500 * Math.pow(2, failStreak - 1));
+  logEvent(pos, '(recogniser)', 'restart in ' + delay + ' ms' + (failStreak ? ' (failure streak ' + failStreak + ')' : ''), true);
+  restartTimer = setTimeout(function(){ if (wantRec && prompterOpen && !counting) startRec(); }, delay);
 }
 
 // A tap is a user gesture, so it can revive recognition that the browser has refused to restart.
 function kick(){
   if (S.mode !== 'follow' || calibrating || !SR) return;
-  if (!recActive && !startPending){ fatal = ''; wantRec = true; startRec(); }
+  if (!recActive && !startPending){ fatal = ''; failStreak = 0; wantRec = true; startRec(); }
 }
 
 /* ---------- steady scroll ---------- */
 function steadyTick(){
-  if (paused || calibrating || S.mode !== 'steady' || !prompterOpen) return;
+  if (paused || calibrating || counting || S.mode !== 'steady' || !prompterOpen) return;
   if (pos >= words.length) return;
   fpos += S.wpm / 600;
   var np = Math.min(words.length, Math.floor(fpos));
@@ -624,6 +651,31 @@ document.addEventListener('visibilitychange', function(){
   if (document.visibilityState === 'visible' && prompterOpen) lockScreen();
 });
 
+/* ---------- start delay and session start ---------- */
+function renderCountdown(){
+  $('cdn').textContent = Math.max(1, Math.ceil((cdEnd - Date.now()) / 1000));
+  updateStatus();
+}
+function startCountdown(sec){
+  counting = true; cdEnd = Date.now() + sec * 1000;
+  pEl.classList.add('cd');
+  clearInterval(cdTimer);
+  cdTimer = setInterval(function(){ if (Date.now() >= cdEnd) beginSession(); else renderCountdown(); }, 200);
+  renderCountdown();
+}
+// Listening (or scrolling) only starts here, once you're sat down.
+function beginSession(){
+  clearInterval(cdTimer); cdTimer = null;
+  counting = false; pEl.classList.remove('cd');
+  lastHeard = Date.now(); lastAdvance = Date.now(); failStreak = 0;
+  logEvent(pos, '(session)', 'started', true);
+  if (S.mode === 'follow'){
+    if (SR){ wantRec = true; startRec(); }
+    else { fatal = 'No speech support here. Use Steady or Manual.'; }
+  }
+  updateStatus();
+}
+
 /* ---------- open / close ---------- */
 function openPrompter(calib){
   var src = S.script;
@@ -632,7 +684,7 @@ function openPrompter(calib){
   if (!parsed.words.length){ alert('Add some script first.'); return; }
   words = parsed.words; chunks = parsed.chunks;
   calibrating = !!calib; paused = false; fatal = '';
-  pos = 0; fpos = 0; lastHeard = Date.now(); lastAdvance = Date.now(); restarts = [];
+  pos = 0; fpos = 0; lastHeard = Date.now(); lastAdvance = Date.now();
   freq = countWords(words); pending = null; lastJump = null; farBlockUntil = 0;
   logArr = []; logKey = ''; logT0 = Date.now(); $('dbg').textContent = '';
   prompterOpen = true;
@@ -646,12 +698,11 @@ function openPrompter(calib){
   $('panel').classList.toggle('on', calibrating);
   layout();
   requestAnimationFrame(function(){ colEl.style.transition = ''; });
+  counting = false; failStreak = 0; clearInterval(cdTimer); pEl.classList.remove('cd');
   if (!calibrating){
-    if (S.mode === 'follow'){
-      if (SR){ wantRec = true; startRec(); }
-      else { fatal = 'No speech support here. Use Steady or Manual.'; }
-    }
     clearInterval(steadyTimer); steadyTimer = setInterval(steadyTick, 100);
+    var dly = Math.max(0, Math.min(60, Math.round(+S.delay || 0)));
+    if (dly > 0) startCountdown(dly); else beginSession();
   }
   clearInterval(statusTimer); statusTimer = setInterval(updateStatus, 400);
   lockScreen();
@@ -665,7 +716,8 @@ function openPrompter(calib){
 
 function closePrompter(){
   prompterOpen = false; wantRec = false;
-  clearTimeout(restartTimer); clearInterval(steadyTimer); clearInterval(statusTimer);
+  clearTimeout(restartTimer); clearInterval(steadyTimer); clearInterval(statusTimer); clearInterval(cdTimer);
+  counting = false; pEl.classList.remove('cd');
   killRec(); unlockScreen();
   pEl.classList.remove('on'); $('panel').classList.remove('on');
   document.body.classList.remove('lock');
@@ -717,7 +769,11 @@ function togglePause(){
   updateStatus();
 }
 function bindZone(id, fn){
-  $(id).addEventListener('pointerdown', function(e){ e.preventDefault(); flash(id); kick(); fn(); });
+  $(id).addEventListener('pointerdown', function(e){
+    e.preventDefault(); flash(id);
+    if (counting){ beginSession(); return; }          // any tap during the countdown starts now
+    kick(); fn();
+  });
 }
 bindZone('zBack', function(){ if (!calibrating) nudge(-1); });
 bindZone('zFwd', function(){ if (!calibrating) nudge(1); });
@@ -725,6 +781,7 @@ bindZone('zMid', togglePause);
 
 document.addEventListener('keydown', function(e){
   if (!prompterOpen) return;
+  if (counting && e.key !== 'Escape'){ beginSession(); e.preventDefault(); return; }
   if (e.key === 'Escape') closePrompter();
   else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { nudge(1); e.preventDefault(); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { nudge(-1); e.preventDefault(); }
