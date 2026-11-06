@@ -125,7 +125,8 @@ details li{margin:6px 0}
       <li><b>Taps.</b> Left third goes back a phrase, right third goes forward a phrase, middle pauses or resumes. If listening has dropped, tapping also restarts it.</li>
       <li><b>Voice following</b> uses Safari's built-in speech recognition. Dictation must be switched on (Settings → General → Keyboard → Enable Dictation), and you need to allow the microphone when asked. It sends audio to Apple, so it needs a connection.</li>
       <li><b>Microphone.</b> A lav or USB mic plugged into the iPad is picked up automatically. Connect it before pressing Start.</li>
-      <li><b>Start delay.</b> After you press Start, a countdown gives you time to walk over and sit down. Nothing listens or scrolls until it reaches zero, and tapping the screen starts it early. Set it to 0 to start at once.</li>
+      <li><b>Start delay.</b> After you press Start, a countdown gives you time to walk over and sit down. Listening begins with your tap on Start (Safari needs that), but what it hears is ignored, and steady scroll waits, until the countdown reaches zero. Tapping the screen or pressing a key starts it early. Set it to 0 to start at once.</li>
+      <li><b>Clicker or keyboard.</b> A Bluetooth page-turner or keyboard counts as a tap: any key press restarts listening if it has dropped, and the arrow, Page Up/Down and space keys move or pause the text.</li>
       <li><b>When it can't hear you</b> the text stays where it is and the pill turns amber. It never runs on ahead of you.</li>
       <li><b>Without Safari's toolbars:</b> Share → Add to Home Screen. If speech won't start from the home-screen icon, use it from a normal Safari tab instead.</li>
       <li><b>Keyboard</b> (for testing on a computer): arrows move, space pauses, Esc exits.</li>
@@ -329,10 +330,10 @@ var words = [], chunks = [], wordEls = [], chunkEls = [];
 var pos = 0, fpos = 0;
 var prompterOpen = false, calibrating = false, paused = false;
 var rec = null, wantRec = false, recActive = false, startPending = false, restartTimer = null;
-var failStreak = 0, sessErr = false, startedAt = 0, counting = false, cdEnd = 0, cdTimer = null;
+var failStreak = 0, sessErr = false, startedAt = 0, startReqAt = 0, everStarted = false, counting = false, cdEnd = 0, cdTimer = null;
 var fatal = '', lastHeard = 0, lastAdvance = 0, steadyTimer = null, statusTimer = null, wl = null;
 var freq = {}, pending = null, lastJump = null, farBlockUntil = 0, logArr = [], logKey = '', logT0 = 0;
-var CONFIRM_MS = 4000, UNDO_MS = 10000, FAR_BLOCK_MS = 8000;
+var CONFIRM_MS = 4000, UNDO_MS = 10000, FAR_BLOCK_MS = 8000, WATCHDOG_MS = 6000;
 var colEl = $('col'), pEl = $('prompter');
 var fontPx = 60, flashTimers = {};
 
@@ -567,8 +568,9 @@ function startRec(){
   var r = new SR();
   r.continuous = true; r.interimResults = true; r.lang = S.lang; r.maxAlternatives = 1;
   r.onstart = function(){
-    recActive = true; startPending = false; startedAt = Date.now(); sessErr = false;
+    recActive = true; startPending = false; startedAt = Date.now(); sessErr = false; everStarted = true;
     logEvent(pos, '(recogniser)', 'listening started', true);
+    updateStatus();
   };
   r.onend = function(){
     recActive = false; startPending = false;
@@ -597,13 +599,13 @@ function startRec(){
   };
   r.onresult = function(e){
     lastHeard = Date.now(); failStreak = 0;
-    if (paused || S.mode !== 'follow' || calibrating) return;
+    if (paused || S.mode !== 'follow' || calibrating || counting) return;
     var txt = '';
     for (var i = 0; i < e.results.length; i++) txt += ' ' + e.results[i][0].transcript;
     var rw = txt.split(/\s+/).map(norm).filter(Boolean);
     onHeard(rw);
   };
-  startedAt = 0; sessErr = false;
+  startedAt = 0; sessErr = false; startReqAt = Date.now();
   rec = r; startPending = true;
   try { r.start(); } catch(e){ startPending = false; }
 }
@@ -622,13 +624,30 @@ function scheduleRestart(){
   clearTimeout(restartTimer);
   var delay = failStreak === 0 ? 250 : Math.min(5000, 500 * Math.pow(2, failStreak - 1));
   logEvent(pos, '(recogniser)', 'restart in ' + delay + ' ms' + (failStreak ? ' (failure streak ' + failStreak + ')' : ''), true);
-  restartTimer = setTimeout(function(){ if (wantRec && prompterOpen && !counting) startRec(); }, delay);
+  restartTimer = setTimeout(function(){ if (wantRec && prompterOpen) startRec(); }, delay);
 }
 
-// A tap is a user gesture, so it can revive recognition that the browser has refused to restart.
+// Safari can accept start() and then never answer: no start, no error, no end. Once a start has worked
+// at least once (so a first-time permission prompt isn't mistaken for a hang), give up on a silent one
+// after a few seconds and try again with a fresh recogniser.
+function watchdog(){
+  if (!prompterOpen || !wantRec || calibrating || !everStarted) return;
+  if (startPending && !recActive && Date.now() - startReqAt > WATCHDOG_MS){
+    logEvent(pos, '(recogniser)', 'no response to start after ' + (WATCHDOG_MS / 1000) + 's, trying a fresh recogniser', true);
+    failStreak++;
+    killRec();
+    scheduleRestart();
+  }
+}
+
+// A tap or key press is a user action, so it can revive recognition that Safari has stopped or
+// ignored, including a start that never answered.
 function kick(){
   if (S.mode !== 'follow' || calibrating || !SR) return;
-  if (!recActive && !startPending){ fatal = ''; failStreak = 0; wantRec = true; startRec(); }
+  if (recActive) return;
+  fatal = ''; failStreak = 0; wantRec = true; startPending = false;
+  logEvent(pos, '(tap)', 'restarting the recogniser', true);
+  startRec();
 }
 
 /* ---------- steady scroll ---------- */
@@ -663,16 +682,12 @@ function startCountdown(sec){
   cdTimer = setInterval(function(){ if (Date.now() >= cdEnd) beginSession(); else renderCountdown(); }, 200);
   renderCountdown();
 }
-// Listening (or scrolling) only starts here, once you're sat down.
+// Called when the countdown ends (or is skipped). Listening itself was started by the tap on Start.
 function beginSession(){
   clearInterval(cdTimer); cdTimer = null;
   counting = false; pEl.classList.remove('cd');
-  lastHeard = Date.now(); lastAdvance = Date.now(); failStreak = 0;
-  logEvent(pos, '(session)', 'started', true);
-  if (S.mode === 'follow'){
-    if (SR){ wantRec = true; startRec(); }
-    else { fatal = 'No speech support here. Use Steady or Manual.'; }
-  }
+  lastHeard = Date.now(); lastAdvance = Date.now();
+  logEvent(pos, '(session)', 'countdown over, now following', true);
   updateStatus();
 }
 
@@ -698,13 +713,19 @@ function openPrompter(calib){
   $('panel').classList.toggle('on', calibrating);
   layout();
   requestAnimationFrame(function(){ colEl.style.transition = ''; });
-  counting = false; failStreak = 0; clearInterval(cdTimer); pEl.classList.remove('cd');
+  counting = false; failStreak = 0; everStarted = false; clearInterval(cdTimer); pEl.classList.remove('cd');
   if (!calibrating){
     clearInterval(steadyTimer); steadyTimer = setInterval(steadyTick, 100);
+    // Listening starts here, inside the tap on Start: Safari may ignore a start that doesn't come from a
+    // user action. During the countdown it listens but what it hears is ignored.
+    if (S.mode === 'follow'){
+      if (SR){ wantRec = true; startRec(); }
+      else { fatal = 'No speech support here. Use Steady or Manual.'; }
+    }
     var dly = Math.max(0, Math.min(60, Math.round(+S.delay || 0)));
     if (dly > 0) startCountdown(dly); else beginSession();
   }
-  clearInterval(statusTimer); statusTimer = setInterval(updateStatus, 400);
+  clearInterval(statusTimer); statusTimer = setInterval(function(){ watchdog(); updateStatus(); }, 400);
   lockScreen();
   try {
     var el = document.documentElement;
@@ -771,7 +792,7 @@ function togglePause(){
 function bindZone(id, fn){
   $(id).addEventListener('pointerdown', function(e){
     e.preventDefault(); flash(id);
-    if (counting){ beginSession(); return; }          // any tap during the countdown starts now
+    if (counting){ kick(); beginSession(); return; }  // any tap during the countdown starts now
     kick(); fn();
   });
 }
@@ -781,10 +802,11 @@ bindZone('zMid', togglePause);
 
 document.addEventListener('keydown', function(e){
   if (!prompterOpen) return;
+  if (e.key !== 'Escape') kick();                      // a key press is a user action: revive listening if it dropped
   if (counting && e.key !== 'Escape'){ beginSession(); e.preventDefault(); return; }
   if (e.key === 'Escape') closePrompter();
-  else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { nudge(1); e.preventDefault(); }
-  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { nudge(-1); e.preventDefault(); }
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') { nudge(1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { nudge(-1); e.preventDefault(); }
   else if (e.key === ' ') { togglePause(); e.preventDefault(); }
 });
 window.addEventListener('resize', function(){ if (prompterOpen) layout(); });
